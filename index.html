@@ -601,6 +601,16 @@ async function startAnalysis(){
   try{
     updateProgress(30,'正在分析数据...');
     var result = await mod.processExcel(selectedFiles);
+    // 诊断日志 — 显示分析结果概要
+    var dlog = [];
+    dlog.push('文件数: '+selectedFiles.length);
+    dlog.push('DATA keys: '+(result.DATA ? Object.keys(result.DATA).length : 0));
+    dlog.push('DATA.years: '+(result.DATA&&result.DATA.years ? JSON.stringify(result.DATA.years) : 'null'));
+    dlog.push('detailRows: '+(result.detailRows ? result.detailRows.length : 0));
+    dlog.push('warnings: '+(result.warnings||[]).join('; '));
+    dlog.push('unmatched: '+(result.unmatched||[]).join(', '));
+    updateProgress(40, dlog.join(' | '));
+    console.log('[诊断]', dlog.join('\n'));
 
     if(result.unmatched && result.unmatched.length > 0){
       hideLoading();

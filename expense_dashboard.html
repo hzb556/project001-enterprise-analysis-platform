@@ -755,9 +755,9 @@ function main(){
   // Show loading overlay
   document.getElementById('loadOverlay').classList.remove('done');
 
-  // Load detail rows via API
+  // Detail rows already loaded from IndexedDB by init()
   var startTime = Date.now();
-  (__exportMode ? Promise.resolve({ok:true, json: function(){return Promise.resolve(R)}}) : fetch('/api/rows/' + REPORT_ID))
+  Promise.resolve({ok:true, json: function(){return Promise.resolve(R)}})
     .then(function(resp){
       if(!resp.ok) throw new Error('HTTP '+resp.status);
       return resp.json();

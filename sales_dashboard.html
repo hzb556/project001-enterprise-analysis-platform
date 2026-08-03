@@ -632,7 +632,7 @@ var prodMap = {};
     renderDrilldown(renderProdMix(R));
   } else {
     dd.innerHTML = '<div class="cust-drilldown"><p style="color:var(--muted);">正在加载明细数据...</p></div>';
-    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrilldown(renderProdMix(R));
     }).catch(function(){
       dd.innerHTML = '<div class="cust-drilldown"><p style="color:var(--red);">加载失败，请先切换到明细页签</p></div>';
@@ -756,7 +756,7 @@ function renderProdRankChange() {
     tableEl.innerHTML = thead+'<tbody>'+tbody+'</tbody>';
   }
   if (R.length>0) { build(R); }
-  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
 }
 
 function initProdTab() {
@@ -919,7 +919,7 @@ function toggleProdDrill(name, el) {
   if (R.length > 0) { renderDrill(R); }
   else {
     dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
-    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrill(R);
     });
   }
@@ -1154,7 +1154,7 @@ function toggleCatDrill(name, el) {
   if (R.length > 0) { renderDrill(R); }
   else {
     dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
-    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrill(R);
     });
   }
@@ -1218,7 +1218,7 @@ function renderDeptCustTable() {
     document.querySelector('#deptCustTable tbody').innerHTML = tbody;
   }
   if (R.length>0) { build(R); }
-  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
 }
 
 var drillDeptCust = null, chDeptDrill = null;
@@ -1275,7 +1275,7 @@ function toggleDeptDrill(name, el) {
     }, 100);
   }
   if (R.length>0) { renderDrill(R); }
-  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){ renderDrill(rows); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){ renderDrill(rows); }); }
 }
 
 function renderDeptCustBar() {
@@ -1392,7 +1392,7 @@ function renderDeptKPIs() {
     }).join('');
   }
   if (R.length > 0) { build(R); }
-  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
 }
 
 function renderDeptMonthly() {
@@ -1610,7 +1610,7 @@ function toggleSpDrill(name, el) {
   if (R.length > 0) { renderDrill(R); }
   else {
     dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
-    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrill(R);
     });
   }
@@ -1830,7 +1830,7 @@ function toggleBrandDrill(name, el) {
   if (R.length > 0) { renderDrill(R); }
   else {
     dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
-    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrill(R);
     });
   }
@@ -1844,7 +1844,7 @@ const detailPageSize = 50;
 
 function initDetailTab() {
   if (R.length === 0) {
-    fetch('/sales/api/rows/'+rid).then(r => r.json()).then(rows => {
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(r => r.json()).then(rows => {
       R = rows;
       initDetailFilters();
       filterDetailTable();
@@ -1933,7 +1933,7 @@ function exportDetailCSV() {
 // ---- Init ----
 async function loadRows() {
   if(__exportMode && __embeddedRows){ return __embeddedRows; }
-  const resp = await fetch(`/sales/api/rows/${rid}`);
+  const resp = {ok:true, json:function(){return Promise.resolve(R)}};
   R = await resp.json();
   filteredR = [...R];
   renderTable();
@@ -2294,7 +2294,7 @@ function showSankeyDetail(source, target) {
   }
 
   function loadAndRender() {
-    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderWithRows(R);
     }).catch(function(){
       titleEl.textContent = 'Failed to load detail data. Please open the Detail tab first.';
@@ -2357,7 +2357,7 @@ function renderRankChange() {
   if (R.length > 0) {
     build(R);
   } else {
-    fetch('/sales/api/rows/'+rid).then(function(r){ return r.json(); }).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){ return r.json(); }).then(function(rows){
       R = rows; build(R);
     });
   }
@@ -2401,7 +2401,7 @@ function renderProdLifecycle() {
     el.innerHTML = h;
   }
   if (R.length>0) { build(R); }
-  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
 }
 
 // main() closes here

@@ -1,6 +1,6 @@
 # 企业运营分析平台
 
-> **独立仓库**：enterprise-analysis-platform
+> **独立仓库**：[project001-enterprise-analysis-platform](https://github.com/hzb556/project001-enterprise-analysis-platform)
 > **创建日期**：2026-07-16（接入工厂日期）
 > **原始创建**：2026-05（v1.0.0）
 > **当前版本**：v1.5.1

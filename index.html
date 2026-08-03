@@ -663,7 +663,7 @@ async function saveAndGo(result){
   }
 
   hideLoading();
-  window.location.href = 'dashboard.html';
+  window.location.href = (currentModule === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
 }
 
 // ============ MAPPING MODAL ============
@@ -768,7 +768,7 @@ async function loadDemo(){
       reportType: currentModule,
       fileNames: ['演示数据'],
     });
-    window.location.href = 'dashboard.html';
+    window.location.href = (currentModule === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
   }catch(e){
     hideLoading();
     showError('加载演示数据失败: '+e.message);
@@ -837,7 +837,8 @@ async function openReport(id){
       fileNames: [r.report_name],
       id: r.id,
     });
-    window.location.href = 'dashboard.html';
+    var dash = (r.report_type === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
+    window.location.href = dash;
   } catch(e) {
     hideLoading();
     showError('加载报告失败: '+e.message);

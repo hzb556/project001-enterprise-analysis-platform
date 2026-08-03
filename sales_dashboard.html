@@ -1,0 +1,2438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>销售分析报告 — 企业运营分析</title>
+<script src="js/vendor/echarts.min.js"></script>
+<link href="css/tabulator_midnight.min.css" rel="stylesheet">
+<script src="js/vendor/tabulator.min.js"></script>
+<script src="js/shared/tabulator-builder.js"></script>
+<link href="css/variables.css" rel="stylesheet">
+<style>
+body{min-height:100vh}
+.main { max-width:1400px; margin:0 auto; padding:20px 24px; }
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card { background:var(--card); border-radius:12px; padding:20px; border:1px solid var(--border); }
+.kpi-card .label { color:var(--muted); font-size:13px; margin-bottom:8px; }
+.kpi-card .value { font-size:28px; font-weight:700; }
+.kpi-card .sub { font-size:13px; margin-top:6px; }
+.kpi-c .lbl{font-size:12px;color:var(--muted);margin-bottom:4px}
+.kpi-c .val{font-size:26px;font-weight:700;color:#fff}
+.kpi-c .un{font-size:13px;color:var(--muted);font-weight:400}
+.kpi-c .row2{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6}
+.kpi-c .row2 b{color:var(--text)}
+.up{color:var(--red)}.dn{color:var(--green)}
+.chart-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+@media(max-width:900px){ .chart-row{grid-template-columns:1fr;} }
+.chart-panel { background:var(--card); border-radius:12px; padding:20px; border:1px solid var(--border); }
+.chart-panel h3 { font-size:15px; margin-bottom:12px; color:var(--muted); }
+.chart-box { width:100%; height:380px; }
+.controls { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.controls select,.controls input { padding:8px 12px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:14px; }
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { background:#1e1e40; padding:10px 12px; text-align:left; font-weight:600; color:var(--muted); white-space:nowrap; cursor:pointer; position:sticky; top:0; z-index:1; }
+th:hover { color:var(--text); }
+td { padding:8px 12px; border-bottom:1px solid var(--border); }
+tr:hover td { background:#1e1e40; }
+.diag { background:var(--card); border-radius:12px; padding:24px; border:1px solid var(--border); margin-bottom:16px; line-height:1.7; }
+.diag h2 { font-size:18px; margin-bottom:16px; }
+.diag h3 { font-size:15px; margin:16px 0 8px; color:var(--blue); }
+.diag ul { padding-left:20px; }
+.diag li { margin:6px 0; color:var(--muted); }
+.diag .up,.diag .dn{font-weight:600}
+.pagination { display:flex; gap:8px; align-items:center; justify-content:center; margin:16px 0; }
+.pagination button { padding:6px 14px; background:#1e1e40; color:var(--text); border:1px solid var(--border); border-radius:6px; cursor:pointer; }
+.pagination button:hover { background:var(--blue); color:#000; }
+.pagination button:disabled { opacity:.3; cursor:not-allowed; }
+.pagination span { color:var(--muted); font-size:13px; }
+.export-btn { padding:8px 16px; background:var(--blue); color:#000; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px; }
+.mw-btn { padding:4px 10px; background:var(--bg); color:var(--muted); border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:12px; transition:all .2s; }
+.mw-btn:hover { color:var(--text); border-color:var(--blue); }
+.mw-btn.active { background:var(--blue); color:#000; border-color:var(--blue); font-weight:600; }
+.cust-drilldown { background:var(--bg); border-radius:8px; padding:16px; margin-top:8px; border:1px solid var(--border); }
+.chart-box-sm { width:100%; height:280px; }
+.controls-row { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.controls-row select, .controls-row input { padding:8px 12px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:14px; }
+
+@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(2,1fr)!important}.chart-row{grid-template-columns:1fr}.tab-bar{flex-wrap:wrap}.main{padding:10px 12px}._topnav{flex-direction:column;gap:8px;padding:10px 16px}._topnav ._tn-left,._topnav ._tn-right{flex-wrap:wrap}.chart-box{height:300px}.chart-box-sm{height:220px}table{font-size:11px}th,td{padding:6px 8px}}
+</style>
+</head>
+<body>
+<div class="topbar" style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--border);margin-bottom:18px">
+  <span style="font-weight:700;color:#fff">📈 销售分析报告</span>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span id="topReportName" style="font-size:10px;color:var(--muted)"></span>
+    <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:5px">← 返回</a>
+    <a href="#" onclick="doExport('html')" style="color:var(--green);border-color:var(--green);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--green);border-radius:5px">📥 导出</a>
+    <a href="#" onclick="doExport('excel')" style="color:#4caf84;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #4caf84;border-radius:5px">📥 Excel</a>
+    <a href="#" onclick="doSave()" style="color:#a855f7;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #a855f7;border-radius:5px">☁ 保存</a>
+    <button onclick="doClear()" style="background:transparent;color:var(--red);border:1px solid #ff525240;border-radius:5px;cursor:pointer;font-size:11px;padding:4px 10px">🗑 清除</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Tab Bar -->
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="overview">总览</button>
+    <button class="tab-btn" data-tab="customer">客户</button>
+    <button class="tab-btn" data-tab="product">产品</button>
+    <button class="tab-btn" data-tab="dept">部门</button>
+    <button class="tab-btn" data-tab="category">品类</button>
+    <button class="tab-btn" data-tab="salesperson">业务员</button>
+    <button class="tab-btn" data-tab="brand">品牌</button>
+    <button class="tab-btn" data-tab="detail">明细</button>
+  </div>
+  <!-- Tab: Overview -->
+  <div class="tab-content active" id="tab-overview">
+  <!-- Year filter -->
+  <div class="controls-row">
+    <select id="yearFilter"></select>
+
+    <span style="color:var(--muted);font-size:12px;">报告: <span id="lblReportId"></span></span>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <!-- Charts Row 1: Yearly Revenue + Monthly Revenue -->
+  <div class="chart-row">
+    <div class="chart-panel"><h3>📊 年度收入趋势（万元）</h3><div class="chart-box" id="chYearly"></div></div>
+    <div class="chart-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <h3 style="margin:0;">📈 月度收入/毛利趋势（万元）</h3>
+          <div id="mwToggle" style="display:none;gap:4px;">
+            <button class="mw-btn" data-w="12">近12月</button>
+            <button class="mw-btn active" data-w="24">近24月</button>
+            <button class="mw-btn" data-w="36">近36月</button>
+            <button class="mw-btn" data-w="all">全部</button>
+          </div>
+        </div>
+        <div class="chart-box" id="chMonthly"></div>
+      </div>
+  </div>
+
+  <!-- Sunbursts -->
+  <div class="chart-row">
+    <div class="chart-panel"><h3>🍩 <span id="sunCustTitle">客户收入占比</span></h3><div class="chart-box" id="chSunburstCust"></div></div>
+    <div class="chart-panel"><h3>🍩 <span id="sunProdTitle">产品收入占比</span></h3><div class="chart-box" id="chSunburstProd"></div></div>
+  </div>
+
+  <!-- Diagnostics -->
+  <div class="diag" id="diagBox"></div>
+
+  </div><!-- /tab-overview -->
+  <!-- Tab: Customer -->
+  <div class="tab-content" id="tab-customer">
+    <div class="controls-row">
+      <select id="custYearFilter"></select>
+      <select id="custSortBy">
+        <option value="revenue">按收入排序</option>
+        <option value="yoy">按同比排序</option>
+        <option value="gp_margin">按毛利率排序</option>
+      </select>
+      <input type="text" id="custSearch" placeholder="搜索客户..." oninput="renderCustTable()">
+    </div>
+    <div id="custKPIRow" class="kpi-row"></div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 Top 10 客户收入（万元，含同比）</h3><div class="chart-box" id="chCustBar"></div><div id="custAvgLabel" style="text-align:right;margin-top:4px;font-size:12px;color:#ffa726;font-weight:600;display:none;"></div></div>
+      <div class="chart-panel"><h3>🎯 收入 vs 毛利率（气泡大小=毛利额）</h3><div class="chart-box" id="chCustScatter"></div></div>
+    </div>
+    <!-- Customer Ranking Change -->
+    <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">📋 Top 20 客户排名变化 <span style="font-size:11px;color:var(--muted);">（今年 vs 去年）</span></h3>
+      <div style="max-height:500px;overflow-y:auto;"><table style="font-size:12px;width:100%;" id="rankChangeTable"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 客户分层帕累托图</h3><div class="chart-box" id="chPareto"></div></div>
+      <div class="chart-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <h3 style="margin:0;">🗺 <span id="treemapTitle">客户收入树状图</span>（万元）</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="treemapYearFilter" onchange="renderTreemap()" style="padding:6px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:12px;"></select>
+            <select id="treemapDeptFilter" onchange="renderTreemap()" style="padding:6px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;font-size:12px;"><option value="all">全部部门</option></select>
+          </div>
+        </div>
+        <div class="chart-box" id="chTreemap" style="height:380px;"></div>
+      </div>
+    </div>
+    <!-- Customer Migration Sankey -->
+    <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">🔄 客户流转桑基图</h3>
+      <div class="chart-box" id="chSankey" style="height:360px;"></div>
+      <!-- Customer Lifecycle Lists -->
+      <div id="custLifecycle" style="margin-top:16px;"></div>
+    </div>
+        <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">👥 客户列表</h3>
+      <div style="max-height:500px;overflow-y:auto;">
+        <table id="custTable"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div id="custDrilldown"></div>
+  </div><!-- /tab-customer -->
+  <!-- Tab: Product -->
+  <div class="tab-content" id="tab-product">
+    <div class="controls-row">
+      <select id="prodYearFilter"></select>
+    </div>
+    <div id="prodKPIRow" class="kpi-row"></div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 Top 产品收入（万元，含同比）</h3><div class="chart-box" id="chProdBar"></div><div id="prodAvgLabel" style="text-align:right;margin-top:4px;font-size:12px;color:#ffa726;font-weight:600;display:none;"></div></div>
+      <div class="chart-panel"><h3>🎯 收入 vs 毛利率（气泡大小=毛利额）</h3><div class="chart-box" id="chProdScatter"></div></div>
+    </div>
+    <!-- Product Ranking Change -->
+    <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">📋 Top 20 产品排名变化 <span style="font-size:11px;color:var(--muted);">（今年 vs 去年）</span></h3>
+      <div style="max-height:500px;overflow-y:auto;"><table style="font-size:12px;width:100%;" id="prodRankTable"><thead></thead><tbody></tbody></table></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>🍩 产品品类分布</h3><div class="chart-box" id="chProdSunburst"></div></div>
+      <div class="chart-panel" id="prodLifecyclePanel">
+        <h3 style="margin-bottom:12px;">🔄 产品生命周期</h3>
+        <div id="prodLifecycle"></div>
+      </div>
+    </div>
+    <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">📦 产品列表</h3>
+      <div style="max-height:500px;overflow-y:auto;">
+        <table id="prodTable"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div id="prodDrilldown"></div>
+  </div>
+  <!-- Tab: Department -->
+  <div class="tab-content" id="tab-dept">
+    <div class="controls-row">
+      <select id="deptYearFilter"></select>
+      <select id="deptCustFilter"></select>
+    </div>
+    <div id="deptKPIRow" class="kpi-row"></div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📈 部门月度收入走势对比（万元）</h3><div class="chart-box" id="chDeptMonthly"></div></div>
+      <div class="chart-panel"><h3>📊 部门年度收入趋势（万元）</h3><div class="chart-box" id="chDeptYearly"></div></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>👤 部门客户收入 Top10（万元）</h3><div class="chart-box" id="chDeptCustBar"></div></div>
+      <div class="chart-panel"><h3>🍩 部门客户收入占比</h3><div class="chart-box" id="chDeptCustPie"></div></div>
+    </div>
+    <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">👥 部门客户明细</h3>
+      <div style="max-height:500px;overflow-y:auto;">
+        <table id="deptCustTable" style="font-size:12px;width:100%;"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div id="deptDrilldown"></div>
+  </div>
+  <!-- Tab: Category -->
+  <div class="tab-content" id="tab-category">
+    <div class="controls-row">
+      <select id="catYearFilter"></select>
+    </div>
+    <div id="catKPIRow" class="kpi-row"></div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 品类收入对比（万元，含同比）</h3><div class="chart-box" id="chCatBar"></div></div>
+      <div class="chart-panel"><h3>🍩 品类收入占比</h3><div class="chart-box" id="chCatPie"></div></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📈 品类月度收入趋势（万元）</h3><div class="chart-box" id="chCatMonthly"></div></div>
+      <div class="chart-panel"><h3>📊 品类结构变化（两年对比）</h3><div class="chart-box" id="chCatStructure"></div></div>
+    </div>
+    <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">📦 品类明细</h3>
+      <div style="max-height:500px;overflow-y:auto;">
+        <table id="catTable" style="font-size:12px;width:100%;"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div id="catDrilldown"></div>
+  </div>
+  <!-- Tab: Salesperson -->
+  <div class="tab-content" id="tab-salesperson">
+    <div class="controls-row">
+      <select id="spYearFilter"></select>
+      <select id="spSortBy">
+        <option value="revenue">按收入排序</option>
+        <option value="customers">按客户数排序</option>
+        <option value="gp_margin">按毛利率排序</option>
+      </select>
+      <input type="text" id="spSearch" placeholder="搜索业务员..." oninput="renderSpTable()">
+    </div>
+    <div id="spKPIRow" class="kpi-row"></div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 业务员收入排行（万元）</h3><div class="chart-box" id="chSpBar"></div></div>
+      <div class="chart-panel"><h3>🎯 收入 vs 毛利率（气泡=客户数）</h3><div class="chart-box" id="chSpScatter"></div><div id="spScatterNote" style="display:none;margin-top:8px;padding:8px 12px;background:#fff3e0;border-left:3px solid #ff9800;font-size:12px;color:#795548;border-radius:0 4px 4px 0;"></div></div>
+    </div>
+    <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">👤 业务员列表</h3>
+      <div style="max-height:500px;overflow-y:auto;">
+        <table id="spTable"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div id="spDrilldown"></div>
+  </div>
+  <!-- Tab: Brand -->
+  <div class="tab-content" id="tab-brand">
+    <div class="controls-row">
+      <select id="brandYearFilter"></select>
+    </div>
+    <div id="brandKPIRow" class="kpi-row"></div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 品牌收入对比（万元，含同比）</h3><div class="chart-box" id="chBrandBar"></div></div>
+      <div class="chart-panel"><h3>🍩 品牌收入占比</h3><div class="chart-box" id="chBrandPie"></div></div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📈 品牌月度收入走势（万元）</h3><div class="chart-box" id="chBrandMonthly"></div></div>
+      <div class="chart-panel"><h3>📊 品牌毛利率对比</h3><div class="chart-box" id="chBrandGP"></div></div>
+    </div>
+    <div class="chart-panel" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">🏷 品牌明细</h3>
+      <div style="max-height:500px;overflow-y:auto;">
+        <table id="brandTable" style="font-size:12px;width:100%;"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div id="brandDrilldown"></div>
+  </div>
+  <!-- Tab: Detail -->
+  <div class="tab-content" id="tab-detail">
+    <div class="chart-panel">
+      <h3 style="margin-bottom:12px;">📋 销售明细</h3>
+      <div class="controls">
+        <input type="text" id="detailSearch" placeholder="搜索客户/产品/业务员..." oninput="filterDetailTable()">
+        <select id="detailYearFilter" onchange="filterDetailTable()"><option value="all">全部年份</option></select>
+        <select id="detailDeptFilter" onchange="filterDetailTable()"><option value="all">全部部门</option></select>
+        <button class="export-btn" onclick="exportDetailCSV()">📥 导出 CSV</button>
+        <span style="color:var(--muted);font-size:13px;" id="detailTableInfo"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="detailDataTable"><thead></thead><tbody></tbody></table>
+      </div>
+      <div class="pagination" id="detailPagination"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+<script src="js/shared/storage.js"></script>
+<script src="js/shared/export.js"></script>
+<script>
+var D = {}, rid = '', R = [];
+(async function init(){
+  try {
+    var report = await loadReport();
+    if (!report || !report.DATA) {
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">没有报告数据</h1><p style="color:var(--muted)">请先上传文件进行分析</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回上传页面</a></div>';
+      return;
+    }
+    D = report.DATA;
+    R = report.detailRows || [];
+    rid = report.id || '';
+    document.getElementById('lblReportId').textContent = rid;
+    document.getElementById('topReportName').textContent = (report.fileNames||['-']).join(', ');
+    main();
+  } catch(e) {
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">加载失败</h1><p>'+e.message+'</p></div>';
+  }
+})();
+
+function main(){
+let R = [];
+let filteredR = [];
+let currentPage = 1;
+const pageSize = 50;
+let sortCol = null, sortAsc = true;
+let monthWindow = 24;
+let activeTab = 'overview';
+let custTabReady = false;
+let chCustBar, chCustScatter, chCustDrill;
+
+// ---- Tab Switching ----
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+  activeTab = name;
+  if (name === 'customer' && !custTabReady) { initCustTab(); custTabReady = true; }
+  // Resize visible charts
+  setTimeout(() => {
+    if (name === 'overview') [chYearly, chMonthly, chSunburstCust, chSunburstProd].forEach(c => c && c.resize());
+    if (name === 'customer' && custTabReady) [chCustBar, chCustScatter, _chTreemap, chPareto, chSankey].forEach(c => c && c.resize());
+  }, 100);
+}
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// ---- Customer Analysis ----
+function initCustTab() {
+  chCustBar = echarts.init(document.getElementById('chCustBar'));
+  chCustScatter = echarts.init(document.getElementById('chCustScatter'));
+  const sel = document.getElementById('custYearFilter');
+  sel.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===D.cy?'selected':''}>${y} 年</option>`).join('');
+  sel.onchange = () => { renderCustBar(); renderCustScatter(); renderCustTable(); };
+  document.getElementById('custSortBy').onchange = renderCustTable;
+  renderCustKPI();
+  renderCustBar(); renderCustScatter(); renderCustTable();
+  renderCustRevenue();
+  renderPareto(); renderSankey();
+  renderCustLifecycle();
+  renderRankChange();
+}
+
+function getFilteredCustomers(sortBy, selY) {
+  const customers = D.customers || [];
+  const cr = D.custRevenue || {};
+  const cc = D.custCost || {};
+  const cgp = D.custGP || {};
+  const cgpm = D.custGPMargin || {};
+  const cyoy = D.custYoY || {};
+  const years = D.years || [];
+  const yi = years.indexOf(selY);
+  const cyTotal = D.kpiByYear && D.kpiByYear[String(selY)] ? D.kpiByYear[String(selY)].revenue / 10000 : 1;
+  const arr = customers.map(c => {
+    var rev;
+    if (cr[c.name] && yi >= 0 && cr[c.name][yi]) {
+      rev = cr[c.name][yi];
+    } else if (R.length > 0) {
+      rev = R.filter(function(r){return r.customer===c.name && (r.y||r.year)===selY}).reduce(function(s,r){return s+(r.amt||0)},0) / 10000;
+    } else {
+      rev = c.amt / 10000;
+    }
+    return {
+      name: c.name,
+      rev: rev,
+      cost: cc[c.name] || 0,
+      gp: cgp[c.name] || 0,
+      gpMargin: cgpm[c.name] || 0,
+      yoy: cyoy[c.name] != null ? cyoy[c.name] : null,
+      pct: cyTotal > 0 ? (rev / cyTotal * 100) : 0
+    };
+  });
+  if (sortBy === 'yoy') arr.sort((a, b) => (b.yoy != null ? b.yoy : -Infinity) - (a.yoy != null ? a.yoy : -Infinity));
+  else if (sortBy === 'gp_margin') arr.sort((a, b) => b.gpMargin - a.gpMargin);
+  else arr.sort((a, b) => b.rev - a.rev);
+  const q = (document.getElementById('custSearch').value || '').toLowerCase();
+  return q ? arr.filter(c => c.name.toLowerCase().includes(q)) : arr;
+}
+
+function renderCustKPI() {
+  var custCount = (D.kpi||{}).customers || 0;
+  var custCountPrev = (D.kpi||{}).customers_prev || 0;
+  var custYoY = custCountPrev > 0 ? ((custCount/custCountPrev-1)*100) : null;
+  var newCount = (D.newCustomers||[]).length;
+  var lostCount = (D.lostCustomers||[]).length;
+  var dormantCount = (D.churnRisk||[]).length;
+  var conc = (D.custConcentration||[]).slice(0,3).reduce(function(s,x){return s+(x.pct||0)},0);
+  var items = [
+    {l:'成交客户',v:custCount,sub:custYoY!=null?(custYoY>0?'+':'')+custYoY.toFixed(1)+'%':'',cls:custYoY>0?'up':'dn'},
+    {l:'新增客户',v:newCount,sub:'较上年新增',cls:''},
+    {l:'流失·6月',v:lostCount,sub:'连续6月无交易',cls:'dn'},
+    {l:'沉睡·3月',v:dormantCount,sub:'连续3月无交易',cls:'up'},
+    {l:'客户集中度',v:conc.toFixed(0)+'%',sub:conc>50?'⚠ 高度集中':conc>30?'需关注':'健康',cls:conc>50?'up':conc>30?'':'dn'},
+  ];
+  var h='';
+  items.forEach(function(it){
+    h+='<div class="kpi-card"><div class="label">'+it.l+'</div><div class="value">'+it.v+'</div>';
+    if(it.sub)h+='<div class="sub" style="color:'+(it.cls==='up'?'var(--red)':it.cls==='dn'?'var(--green)':'var(--muted)')+'">'+it.sub+'</div>';
+    h+='</div>';
+  });
+  document.getElementById('custKPIRow').innerHTML=h;
+}
+
+function renderCustBar() {
+  const selY = parseInt(document.getElementById('custYearFilter').value) || D.cy;
+  const sorted = getFilteredCustomers('revenue', selY).slice(0, 10);
+  const names = sorted.map(c => c.name);
+  const revenues = sorted.map(c => c.rev);
+  const yoyVals = sorted.map(c => c.yoy);
+  var sum=0;for(var i=0;i<revenues.length;i++)sum+=revenues[i];var avg=Math.round(sum/revenues.length);chCustBar.setOption({
+    tooltip: { trigger: 'axis', formatter: function(p) {
+      const i = p[0].dataIndex; const y = yoyVals[i];
+      return `<b>${p[0].name}</b><br/>收入: ${p[0].value.toFixed(1)} 万<br/>同比: ${y!=null?(y>0?'+':'')+y+'%':'无数据'}`;
+    }},
+    grid: { left: 120, right: 40, top: 40, bottom: 70 },
+    xAxis: { type: 'category', data: names, axisLabel: { fontSize: 10, rotate: 45, overflow: 'truncate', width: 60 } },
+    yAxis: { type: 'value', name: '万元' },
+    series: [{
+      type: 'bar', data: revenues, itemStyle: { color: '#5b9bd5', borderRadius: [4, 4, 0, 0] },
+      label: { show: true, position: 'top', fontSize: 10, color: '#94a3b8',
+        formatter: p => { const y = yoyVals[p.dataIndex]; return y != null ? (y > 0 ? '+' : '') + y + '%' : ''; }
+      },
+      markLine: { silent: true, symbol: 'none', label: { show: false }, data: [{ yAxis: avg }], lineStyle: { color: '#ffa726', type: 'dashed' } }
+    }]
+  });
+  // Show avg in HTML element (never clipped)
+  document.getElementById('custAvgLabel').textContent = '均值线: ' + avg + ' 万元';
+  document.getElementById('custAvgLabel').style.display = 'block';
+}
+
+function renderCustScatter() {
+  const selY = parseInt(document.getElementById('custYearFilter').value) || D.cy;
+  const customers = getFilteredCustomers('revenue', selY).filter(c => c.gpMargin >= -100);
+  const data = customers.map(c => [c.rev, c.gpMargin, c.gp, c.name]);
+  chCustScatter.setOption({
+    tooltip: { trigger: 'item', formatter: p =>
+      `<b>${p.data[3]}</b><br/>收入: ${p.data[0].toFixed(1)} 万<br/>毛利率: ${p.data[1]}%<br/>毛利额: ${p.data[2].toFixed(1)} 万`
+    },
+    grid: { left: 60, right: 30, top: 40, bottom: 40 },
+    xAxis: { type: 'value', name: '收入（万元）', nameLocation: 'center', nameGap: 30 },
+    yAxis: { type: 'value', name: '毛利率（%）' },
+    series: [{
+      type: 'scatter', data: data,
+      symbolSize: val => Math.max(6, Math.min(40, Math.sqrt(val[2] || 1) * 4)),
+      itemStyle: { color: '#5b9bd5', opacity: 0.7 },
+      emphasis: { itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1 } },
+      label: { show: true, position: 'right', fontSize: 9, color: '#94a3b8',
+        formatter: p => p.data[3].length > 6 ? p.data[3].slice(0, 6) + '..' : p.data[3] }
+    }]
+  });
+}
+
+var chPareto, chSankey;
+function renderPareto() {
+  var el = document.getElementById('chPareto');
+  if (!el) return;
+  if (!chPareto) chPareto = echarts.init(el);
+  var data = D.custPareto || [];
+  var names = data.map(function(d){return d.name;});
+  var revenues = data.map(function(d){return d.revenue;});
+  var cumPcts = data.map(function(d){return d.cumPct;});
+  var tiers = data.map(function(d){return d.tier;});
+  var colors = tiers.map(function(t){return t==='A'?'#5b9bd5':t==='B'?'#4caf84':'#94a3b8';});
+  chPareto.setOption({
+    tooltip:{trigger:'axis',formatter:function(p){
+      var i=p[0].dataIndex;
+      return '<b>'+names[i]+'</b><br/>收入: '+revenues[i].toFixed(1)+' 万<br/>累计占比: '+cumPcts[i]+'%<br/>等级: <b>'+tiers[i]+'</b>';
+    }},
+    legend:{data:['收入','累计占比'],bottom:0,textStyle:{color:'#94a3b8',fontSize:10}},
+    grid:{left:70,right:70,top:40,bottom:40},
+    xAxis:{type:'category',data:names,axisLabel:{show:false}},
+    yAxis:[
+      {type:'value',name:'万元'},
+      {type:'value',name:'%',min:0,max:100,axisLabel:{formatter:'{value}%'}}
+    ],
+    series:[
+      {name:'收入',type:'bar',data:revenues.map(function(v,i){return {value:v,itemStyle:{color:colors[i],borderRadius:[3,3,0,0]}};}),barMaxWidth:20},
+      {name:'累计占比',type:'line',yAxisIndex:1,data:cumPcts,smooth:true,lineStyle:{color:'#ffa726',width:2},symbol:'none',
+        markLine:{silent:true,data:[{yAxis:70,label:{formatter:'A级 70%'},lineStyle:{color:'#ff5252',type:'dashed'}},{yAxis:95,label:{formatter:'B级 95%'},lineStyle:{color:'#ffa726',type:'dashed'}}],symbol:'none'}}
+    ]
+  });
+}
+
+function renderSankey() {
+  var el = document.getElementById('chSankey');
+  if (!el) return;
+  if (!chSankey) chSankey = echarts.init(el);
+  var mig = D.custMigration || {};
+  var nodes = mig.nodes || [];
+  var links = mig.links || [];
+  if (!nodes.length) return;
+  chSankey.setOption({
+    tooltip:{trigger:'item',formatter:function(p){return p.name+': '+p.value+' 个客户';}},
+    series:[{type:'sankey',layout:'none',emphasis:{focus:'adjacency'},nodeAlign:'left',
+      data:nodes,links:links,
+      label:{fontSize:11,color:'#f0f0f0'},
+      lineStyle:{color:'gradient',curveness:0.5}
+    }]
+  });
+
+}
+
+function renderCustTable() {  const sortBy = document.getElementById('custSortBy').value;
+  const selY = parseInt(document.getElementById('custYearFilter').value) || D.cy;
+  const customers = getFilteredCustomers(sortBy, selY);
+  const labels = ['客户', '等级', '收入(万元)', '同比', '毛利率', '近3月交易', '状态', '销售贡献'];
+  const thead = `<tr>${labels.map(l => `<th>${l}</th>`).join('')}</tr>`;
+  const cs = D.custStatus || {};
+  const tbody = customers.map(c => {
+    const st = cs[c.name] || {};
+    const tier = st.tier || '-';
+    const status = st.status || '';
+    const recentOrders = st.recentOrders != null ? st.recentOrders : '-';
+    const statusIcon = status === 'active' ? '🟢活跃' : status === 'dormant' ? '🟡沉睡' : status === 'lost' ? '🔴流失' : '-';
+    const tierColor = tier === 'A' ? 'var(--red)' : tier === 'B' ? 'var(--orange)' : 'var(--muted)';
+    return `<tr><td><span class="cust-drill-link" data-name="${c.name.replace(/"/g,'&quot;')}" onclick="toggleCustDrill(this.getAttribute('data-name'),this)" style="cursor:pointer;color:var(--blue);">▶ ${c.name}</span></td>
+    <td><b style="color:${tierColor}">${tier}</b></td>
+    <td>${c.rev.toFixed(1)}</td>
+    <td style="color:${c.yoy>0?'var(--red)':c.yoy<0?'var(--green)':'var(--muted)'}">${c.yoy!=null?(c.yoy>0?'+':'')+c.yoy+'%':'无'}</td>
+    <td>${c.gpMargin}%</td><td>${recentOrders}</td><td>${statusIcon}</td><td>${c.pct.toFixed(1)}%</td></tr>`;
+  }).join('');
+  document.querySelector('#custTable thead').innerHTML = thead;
+  document.querySelector('#custTable tbody').innerHTML = tbody;
+
+}
+
+var drillCust = null;
+function toggleCustDrill(name, el) {
+  var dd = document.getElementById('custDrilldown');
+  if (!dd) return;
+  // Toggle off
+  if (drillCust === name) {
+    if (chCustDrill) { chCustDrill.dispose(); chCustDrill = null; }
+    dd.innerHTML = ''; drillCust = null;
+    el.innerHTML = el.innerHTML.replace('▼', '▶'); return;
+  }
+  // Toggle on
+  if (chCustDrill) { chCustDrill.dispose(); chCustDrill = null; }
+  drillCust = name;
+  document.querySelectorAll('.cust-drill-link').forEach(function(s) { s.innerHTML = s.innerHTML.replace('▼', '▶'); });
+  el.innerHTML = el.innerHTML.replace('▶', '▼');
+  // Product mix - compute from R (all products, not just Top)
+  function renderProdMix(rows) {
+    var yr = D.cy;
+    var selEl = document.getElementById('custYearFilter');
+    if (selEl && selEl.value) { var p = parseInt(selEl.value); if (!isNaN(p)) yr = p; }
+    var nameTrim = (name||'').trim();
+    var allCustRows = rows.filter(function(r){ return (r.customer||'').trim() === nameTrim; });
+    var custRows = allCustRows.filter(function(r){ return (r.y||r.year) === yr; });
+    var sampleCust = rows.length > 0 ? (rows[0].customer||'').slice(0,30) : 'N/A';
+var prodMap = {};
+    custRows.forEach(function(r){
+      var pn = (r.product || '未知').trim();
+      prodMap[pn] = (prodMap[pn]||0) + (r.amt||0);
+    });
+    var prodEntries = Object.entries(prodMap).sort(function(a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
+    var absTotal = prodEntries.reduce(function(s, e) { return s + Math.abs(e[1]); }, 0);
+    if (prodEntries.length > 0) {
+      prodHtml = '<table style=\"font-size:12px;width:100%;\"><thead><tr><th>产品</th><th>金额(元)</th><th>占比</th></tr></thead><tbody>' +
+        prodEntries.map(function(e) { return '<tr><td>' + e[0] + '</td><td>' + e[1].toLocaleString() + '</td><td>' + (absTotal>0?(Math.abs(e[1])/absTotal*100).toFixed(1):0) + '%</td></tr>'; }).join('') +
+        '</tbody></table>';
+    } else {
+      prodHtml = '<p style=\"color:var(--muted);\">该客户暂无产品数据</p>';
+    }
+    return prodHtml;
+  }
+  function renderDrilldown(prodHtml) {
+    dd.innerHTML = '<div class=\"cust-drilldown\"><h4 style=\"margin-bottom:12px;color:var(--blue);\">' + name + '</h4>' +
+      '<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:16px;\">' +
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📦 产品构成</h5>' + prodHtml + '</div>' +
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📈 月度收入趋势（万元）</h5><div class=\"chart-box-sm\" id=\"chCustDrillChart\"></div></div>' +
+      '</div></div>';
+    dd.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    setTimeout(function() {
+      var ctr = document.getElementById('chCustDrillChart');
+      if (!ctr) return;
+      chCustDrill = echarts.init(ctr);
+      var monthly = (D.custMonthly || {})[name] || {};
+      var yms = D.yms || [];
+      if (Object.keys(monthly).length === 0) {
+        ctr.innerHTML = '<p style=\"color:var(--muted);padding:20px;\">该客户无月度趋势数据</p>';
+        return;
+      }
+      chCustDrill.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: 50, right: 15, top: 10, bottom: 30 },
+        xAxis: { type: 'category', data: yms, axisLabel: { rotate: 45, fontSize: 9, interval: Math.floor(yms.length / 6) || 'auto' } },
+        yAxis: { type: 'value', name: '万元' },
+        series: [{ type: 'line', data: yms.map(function(ym) { return monthly[ym] || 0; }), smooth: true, itemStyle: { color: '#5b9bd5' }, areaStyle: { color: 'rgba(91,155,213,0.1)' } }]
+      });
+    }, 100);
+  }
+  if (R.length > 0) {
+    renderDrilldown(renderProdMix(R));
+  } else {
+    dd.innerHTML = '<div class="cust-drilldown"><p style="color:var(--muted);">正在加载明细数据...</p></div>';
+    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+      R = rows; renderDrilldown(renderProdMix(R));
+    }).catch(function(){
+      dd.innerHTML = '<div class="cust-drilldown"><p style="color:var(--red);">加载失败，请先切换到明细页签</p></div>';
+    });
+  }
+}
+
+
+
+
+// ---- Tab readiness flags ----
+let prodTabReady = false, catTabReady = false, deptTabReady = false;
+let spTabReady = false, brandTabReady = false, detailTabReady = false;
+let chProdBar, chProdScatter, chProdSunburst, chProdDrill;
+let chCatMonthly, chCatStructure, chCatBar, chCatPie, chCatDrill;
+let chDeptMonthly, chDeptYearly, chDeptCustBar, chDeptCustPie;
+let chSpBar, chSpScatter, chSpDrill;
+let chBrandMonthly, chBrandGP, chBrandBar, chBrandPie, chBrandDrill;
+
+// Override switchTab to handle all tabs (replaces the original)
+switchTab = function(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+  activeTab = name;
+  if (name === 'customer' && !custTabReady) { initCustTab(); custTabReady = true; }
+  if (name === 'product' && !prodTabReady) { initProdTab(); prodTabReady = true; }
+  if (name === 'category' && !catTabReady) { initCatTab(); catTabReady = true; }
+  if (name === 'dept' && !deptTabReady) { initDeptTab(); deptTabReady = true; }
+  if (name === 'salesperson' && !spTabReady) { initSpTab(); spTabReady = true; }
+  if (name === 'brand' && !brandTabReady) { initBrandTab(); brandTabReady = true; }
+  if (name === 'detail' && !detailTabReady) { initDetailTab(); detailTabReady = true; }
+  setTimeout(() => {
+    if (name === 'overview') [chYearly, chMonthly, chSunburstCust, chSunburstProd].forEach(c => c && c.resize());
+    if (name === 'customer' && custTabReady) [chCustBar, chCustScatter, _chTreemap, chPareto, chSankey].forEach(c => c && c.resize());
+    if (name === 'product' && prodTabReady) [chProdBar, chProdScatter, chProdSunburst].forEach(c => c && c.resize());
+    if (name === 'category' && catTabReady) [chCatMonthly, chCatStructure, chCatBar, chCatPie].forEach(c => c && c.resize());
+    if (name === 'dept' && deptTabReady) [chDeptMonthly, chDeptYearly, chDeptCustBar, chDeptCustPie].forEach(c => c && c.resize());
+    if (name === 'salesperson' && spTabReady) [chSpBar, chSpScatter].forEach(c => c && c.resize());
+    if (name === 'brand' && brandTabReady) [chBrandMonthly, chBrandGP, chBrandBar, chBrandPie].forEach(c => c && c.resize());
+  }, 100);
+};
+// Re-bind tab bar clicks
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = null;
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// ================================================================
+// PRODUCT TAB
+// ================================================================
+function renderProdKPI() {
+  var totalRev = D.kpiByYear && D.kpiByYear[String(D.cy)] ? D.kpiByYear[String(D.cy)].revenue : 1;
+  var products = D.products || [];
+  // Top 3 concentration
+  var top3Rev = products.slice(0,3).reduce(function(s,p){return s+p.amt},0);
+  var conc = totalRev>0 ? (top3Rev/totalRev*100) : 0;
+  // Gross margin with YoY
+  var gm = D.kpi.gp_margin || 0;
+  var gmPrev = D.kpi.gp_margin_prev || 0;
+  var gmDiff = gm - gmPrev;
+  // New products: in current year but not previous year (from prodRevenue if available)
+  var pr = D.prodRevenue || {};
+  var newCount = 0, allCount = 0;
+  Object.keys(pr).forEach(function(p){
+    var v = pr[p];
+    if (v.length >= 2) {
+      if (v[v.length-1] > 0 && (!v[v.length-2] || v[v.length-2] === 0)) newCount++;
+      if (v[v.length-1] > 0) allCount++;
+    }
+  });
+  // If no prodRevenue data, use product list
+  if (allCount === 0) allCount = products.length;
+  var items = [
+    {l:'产品数量', v:allCount, sub:'当年有销售的产品', cls:''},
+    {l:'Top3集中度', v:conc.toFixed(1)+'%', sub:conc>50?'⚠ 高度集中':conc>30?'需关注':'健康', cls:conc>50?'up':''},
+    {l:'毛利率', v:gm.toFixed(1)+'%', sub:'较上年 '+(gmDiff>0?'+':'')+gmDiff.toFixed(1)+'pp', cls:gmDiff>0?'up':'dn'},
+    {l:'新品数', v:newCount, sub:'今年新上市产品', cls:''},
+  ];
+  var h='';
+  items.forEach(function(it){
+    h+='<div class=\"kpi-card\"><div class=\"label\">'+it.l+'</div><div class=\"value\">'+it.v+'</div>';
+    if(it.sub)h+='<div class=\"sub\" style=\"color:'+(it.cls==='up'?'var(--red)':it.cls==='dn'?'var(--green)':'var(--muted)')+'\">'+it.sub+'</div>';
+    h+='</div>';
+  });
+  document.getElementById('prodKPIRow').innerHTML=h;
+}
+
+function renderProdRankChange() {
+  var tableEl = document.getElementById('prodRankTable');
+  if (!tableEl) return;
+  function build(rows) {
+    var cy = D.cy, py = cy - 1;
+    function rankYear(y) {
+      var map = {};
+      rows.forEach(function(r) {
+        if ((r.y||r.year) !== y) return;
+        var p = r.product || '';
+        map[p] = (map[p]||0) + (r.amt||0);
+      });
+      var sorted = Object.entries(map).sort(function(a,b){ return b[1]-a[1]; });
+      var rankMap = {};
+      sorted.forEach(function(e,i){ rankMap[e[0]] = {rank:i+1, rev:Math.round(e[1]/1000)/10}; });
+      return rankMap;
+    }
+    var cyRank = rankYear(cy), pyRank = rankYear(py);
+    var all = Object.keys(cyRank).sort(function(a,b){ return cyRank[a].rank - cyRank[b].rank; }).slice(0, 20);
+    all.forEach(function(p) { if (!pyRank[p]) pyRank[p] = {rank:null, rev:0}; });
+    var data = all.map(function(p) {
+      var cr = cyRank[p], pr = pyRank[p];
+      var change = (pr.rank && cr.rank) ? pr.rank - cr.rank : null;
+      return { name:p, cyRank:cr.rank, pyRank:pr.rank, change:change, cyRev:cr.rev, pyRev:pr.rev };
+    });
+    data.sort(function(a,b){ return (b.change!=null?b.change:-999) - (a.change!=null?a.change:-999); });
+    var labels = ['产品','去年排名','今年排名','变化','去年收入(万)','今年收入(万)'];
+    var thead = '<tr>'+labels.map(function(l){ return '<th>'+l+'</th>'; }).join('')+'</tr>';
+    var tbody = data.map(function(d){
+      var ch = d.change!=null ? (d.change>0 ? '▲ +'+d.change : d.change<0 ? '▼ '+d.change : '─ 0') : '新入榜';
+      var clr = d.change>0 ? 'var(--red)' : d.change<0 ? 'var(--green)' : 'var(--muted)';
+      return '<tr><td><b>'+d.name+'</b></td><td>'+(d.pyRank||'新')+'</td><td>'+d.cyRank+'</td><td style=\"color:'+clr+';font-weight:600;\">'+ch+'</td><td>'+(d.pyRev||0).toFixed(1)+'</td><td>'+d.cyRev.toFixed(1)+'</td></tr>';
+    }).join('');
+    tableEl.innerHTML = thead+'<tbody>'+tbody+'</tbody>';
+  }
+  if (R.length>0) { build(R); }
+  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
+}
+
+function initProdTab() {
+  renderProdKPI();
+  renderProdRankChange();
+  renderProdLifecycle();
+  chProdBar = echarts.init(document.getElementById('chProdBar'));
+  chProdScatter = echarts.init(document.getElementById('chProdScatter'));
+  chProdSunburst = echarts.init(document.getElementById('chProdSunburst'));
+  const sel = document.getElementById('prodYearFilter');
+  sel.innerHTML = (D.years||[]).map(y => '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>').join('');
+  sel.onchange = () => { renderProdBar(); renderProdScatter(); renderProdSunburst(); renderProdTable(); };
+  renderProdBar(); renderProdScatter(); renderProdSunburst(); renderProdTable();
+}
+
+function getFilteredProducts(sortBy, selY) {
+  const products = D.products || [];
+  const pr = D.prodRevenue || {};
+  const pgpm = D.prodGPMargin || {};
+  const pyoy = D.prodYoY || {};
+  const years = D.years || [];
+  const yi = years.indexOf(selY);
+  const arr = products.map(p => {
+    const rev = pr[p.name] && yi >= 0 ? (pr[p.name][yi] || 0) : (p.amt / 10000);
+    return { name: p.name, rev: rev, gpMargin: pgpm[p.name] || 0, yoy: pyoy[p.name] != null ? pyoy[p.name] : null };
+  });
+  if (sortBy === 'yoy') arr.sort((a,b) => (b.yoy!=null?b.yoy:-Infinity) - (a.yoy!=null?a.yoy:-Infinity));
+  else if (sortBy === 'gp_margin') arr.sort((a,b) => b.gpMargin - a.gpMargin);
+  else arr.sort((a,b) => b.rev - a.rev);
+  return arr;
+}
+
+function renderProdBar() {
+  const selY = parseInt(document.getElementById('prodYearFilter').value) || D.cy;
+  const sorted = getFilteredProducts('revenue', selY).slice(0, 10);
+  const names = sorted.map(p => p.name);
+  const revenues = sorted.map(p => p.rev);
+  const yoyVals = sorted.map(p => p.yoy);
+  var sum=0;for(var i=0;i<revenues.length;i++)sum+=revenues[i];var avg=Math.round(sum/revenues.length);
+  document.getElementById('prodAvgLabel').textContent = '均值线: '+avg+' 万元';
+  document.getElementById('prodAvgLabel').style.display = 'block';
+  chProdBar.setOption({
+    tooltip: { trigger: 'axis', formatter: function(ps) {
+      const i = ps[0].dataIndex; const y = yoyVals[i];
+      return '<b>'+ps[0].name+'</b><br/>收入: '+ps[0].value.toFixed(1)+' 万<br/>同比: '+(y!=null?(y>0?'+':'')+y+'%':'无数据');
+    }},
+    grid: { left: 120, right: 40, top: 40, bottom: 70 },
+    xAxis: { type: 'category', data: names, axisLabel: { fontSize: 10, rotate: 45, overflow: 'truncate', width: 60 } },
+    yAxis: { type: 'value', name: '万元' },
+    series: [{ type: 'bar', data: revenues, itemStyle: { color: '#5b9bd5', borderRadius: [4,4,0,0] },
+      label: { show: true, position: 'top', fontSize: 10, color: '#94a3b8',
+        formatter: p => { const y = yoyVals[p.dataIndex]; return y != null ? (y>0?'+':'')+y+'%' : ''; }
+      },
+      markLine: { silent: true, symbol: 'none', label: { show: false }, data: [{ yAxis: avg }], lineStyle: { color: '#ffa726', type: 'dashed' } }
+    }]
+  });
+}
+
+function renderProdScatter() {
+  const selY = parseInt(document.getElementById('prodYearFilter').value) || D.cy;
+  const products = getFilteredProducts('revenue', selY).filter(function(p){ return p.gpMargin >= -100 && p.rev > 0; });
+  var data = products.map(function(p){ return [p.rev, p.gpMargin, p.rev * (p.gpMargin||0) / 100, p.name]; });
+  chProdScatter.setOption({
+    tooltip: { trigger: 'item', formatter: function(params){
+      return '<b>'+params.data[3]+'</b><br/>收入: '+params.data[0].toFixed(1)+' 万<br/>毛利率: '+params.data[1]+'%<br/>毛利额: '+(params.data[2]||0).toFixed(1)+' 万';
+    }},
+    grid: { left: 60, right: 30, top: 40, bottom: 40 },
+    xAxis: { type: 'value', name: '收入（万元）', nameLocation: 'center', nameGap: 30 },
+    yAxis: { type: 'value', name: '毛利率（%）' },
+    series: [{
+      type: 'scatter', data: data,
+      symbolSize: function(val){ return Math.max(6, Math.min(40, Math.sqrt(Math.abs(val[2]||1))*4)); },
+      itemStyle: { color: '#5b9bd5', opacity: 0.7 },
+      emphasis: { itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1 } },
+      label: { show: true, position: 'right', fontSize: 9, color: '#94a3b8',
+        formatter: function(p){ var n=p.data[3]; return n.length>8 ? n.slice(0,8)+'..' : n; } }
+    }]
+  });
+}
+
+function renderProdSunburst() {
+  const selY = parseInt(document.getElementById('prodYearFilter').value) || D.cy;
+  const sbData = (D.sunburstProdByYear||{})[selY] || D.sunburstProdByYear[D.cy] || [];
+  chProdSunburst.setOption({
+    tooltip: { trigger: 'item' },
+    series: [{ type: 'sunburst', data: sbData, radius: [0, '90%'], label: { rotate: 'radial' }, itemStyle: { borderRadius: 4, borderWidth: 1 } }]
+  });
+}
+
+function renderProdTable() {
+  const selY = parseInt(document.getElementById('prodYearFilter').value) || D.cy;
+  const products = getFilteredProducts('revenue', selY);
+  const labels = ['产品', '收入(万元)', '同比', '毛利率'];
+  const thead = '<tr>'+labels.map(l => '<th>'+l+'</th>').join('')+'</tr>';
+  const tbody = products.map(p =>
+    '<tr><td><span style="cursor:pointer;color:var(--blue);" onclick="toggleProdDrill(\''+p.name.replace(/'/g,"\\'")+'\', this)">&#9654; '+p.name+'</span></td>'+
+    '<td>'+p.rev.toFixed(1)+'</td>'+
+    '<td style="color:'+(p.yoy>0?'var(--red)':p.yoy<0?'var(--green)':'var(--muted)')+'">'+(p.yoy!=null?(p.yoy>0?'+':'')+p.yoy+'%':'无')+'</td>'+
+    '<td>'+p.gpMargin+'%</td></tr>'
+  ).join('');
+  document.querySelector('#prodTable thead').innerHTML = thead;
+  document.querySelector('#prodTable tbody').innerHTML = tbody;
+}
+
+var drillProd = null;
+function toggleProdDrill(name, el) {
+  const dd = document.getElementById('prodDrilldown');
+  if (drillProd === name) {
+    if (chProdDrill) { chProdDrill.dispose(); chProdDrill = null; }
+    dd.innerHTML = ''; drillProd = null;
+    el.innerHTML = el.innerHTML.replace('▼', '▶'); return;
+  }
+  if (chProdDrill) { chProdDrill.dispose(); chProdDrill = null; }
+  drillProd = name;
+  document.querySelectorAll('#prodTable span').forEach(s => { if (s.innerHTML.includes('▼')) s.innerHTML = s.innerHTML.replace('▼', '▶'); });
+  el.innerHTML = el.innerHTML.replace('▶', '▼');
+
+  function renderDrill(rows) {
+    // Customer mix from R
+    var custMap = {};
+    var selY = parseInt(document.getElementById('prodYearFilter').value) || D.cy;
+    rows.filter(function(r){ return r.product === name && (r.y||r.year) === selY; }).forEach(function(r){
+      var cn = r.customer || '未知';
+      custMap[cn] = (custMap[cn]||0) + (r.amt||0);
+    });
+    var entries = Object.entries(custMap).sort(function(a,b){ return b[1]-a[1]; });
+    var total = entries.reduce(function(s,e){ return s+e[1]; }, 0);
+    var custHtml = '';
+    if (entries.length > 0) {
+      custHtml = '<table style=\"font-size:12px;width:100%;\"><thead><tr><th>客户</th><th>金额(元)</th><th>占比</th></tr></thead><tbody>' +
+        entries.map(function(e){ return '<tr><td>'+e[0]+'</td><td>'+e[1].toLocaleString()+'</td><td>'+(total>0?(e[1]/total*100).toFixed(1):0)+'%</td></tr>'; }).join('') +
+        '</tbody></table>';
+    } else {
+      custHtml = '<p style=\"color:var(--muted);\">该产品暂无客户数据</p>';
+    }
+
+    var monthly = (D.prodMonthly || {})[name] || [];
+    var yms = D.yms || [];
+    dd.innerHTML = '<div class=\"cust-drilldown\"><h4 style=\"margin-bottom:12px;color:var(--blue);\">'+name+'</h4>'+
+      '<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:16px;\">'+
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📊 客户构成</h5>'+custHtml+'</div>'+
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📈 月度收入趋势（万元）</h5><div class=\"chart-box-sm\" id=\"chProdDrillChart\"></div></div>'+
+      '</div></div>';
+    dd.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+    setTimeout(function(){
+      var ctr = document.getElementById('chProdDrillChart');
+      if (!ctr) return;
+      chProdDrill = echarts.init(ctr);
+      chProdDrill.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: 50, right: 15, top: 10, bottom: 30 },
+        xAxis: { type: 'category', data: yms, axisLabel: { rotate: 45, fontSize: 9, interval: Math.floor(yms.length/6)||'auto' } },
+        yAxis: { type: 'value', name: '万元' },
+        series: [{ type: 'line', data: monthly, smooth: true, itemStyle: { color: '#5b9bd5' }, areaStyle: { color: 'rgba(91,155,213,0.1)' } }]
+      });
+    }, 50);
+  }
+
+  if (R.length > 0) { renderDrill(R); }
+  else {
+    dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
+    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+      R = rows; renderDrill(R);
+    });
+  }
+}
+
+// ================================================================
+// CATEGORY TAB
+// ================================================================
+function initCatTab() {
+  chCatMonthly = echarts.init(document.getElementById('chCatMonthly'));
+  chCatStructure = echarts.init(document.getElementById('chCatStructure'));
+  chCatBar = echarts.init(document.getElementById('chCatBar'));
+  chCatPie = echarts.init(document.getElementById('chCatPie'));
+  // Year filter
+  var cyf = document.getElementById('catYearFilter');
+  cyf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>'; }).join('');
+  cyf.onchange = function(){ renderCatKPIs(); renderCatBar(); renderCatPie(); renderCatMonthly(); renderCatStructure(); renderCatTable(); };
+  renderCatKPIs(); renderCatBar(); renderCatPie(); renderCatMonthly(); renderCatStructure(); renderCatTable();
+}
+
+function renderCatKPIs() {
+  const cats = D.categories || [];
+  const cgpm = D.catGPMargin || {};
+  const cr = D.catRevenue || {};
+  const selY = parseInt(document.getElementById('catYearFilter').value) || D.cy;
+  const yi = (D.years||[]).indexOf(selY);
+  const pyi = yi - 1;
+  const totalRev = D.kpiByYear && D.kpiByYear[String(selY)] ? D.kpiByYear[String(selY)].revenue / 10000 : 1;
+  const cards = cats.slice(0, 5).map(c => {
+    const rev = cr[c.name] && yi >= 0 ? cr[c.name][yi] : (c.amt/10000);
+    const prevRev = cr[c.name] && pyi >= 0 ? (cr[c.name][pyi]||0) : 0;
+    const yoyAmt = prevRev > 0 ? (rev - prevRev) : null;
+    const yoyPct = prevRev > 0 ? ((rev/prevRev - 1) * 100) : null;
+    return { name: c.name, rev: rev,
+      gpMargin: (cgpm[c.name] && yi>=0 ? (cgpm[c.name][yi]||0) : 0),
+      pct: totalRev>0?(rev/totalRev*100):0,
+      yoyAmt: yoyAmt, yoyPct: yoyPct };
+  });
+  document.getElementById('catKPIRow').innerHTML = cards.map(c => {
+    const yoyHtml = c.yoyAmt != null
+      ? '<span style="color:'+(c.yoyAmt>=0?'#16a34a':'#ef4444')+';font-size:12px;">同比 '+(c.yoyAmt>=0?'+':'')+c.yoyAmt.toFixed(0)+' 万（'+(c.yoyPct>=0?'+':'')+c.yoyPct.toFixed(1)+'%）</span>'
+      : '<span style="color:var(--muted);font-size:12px;">同比 无上年数据</span>';
+    return '<div class="kpi-card"><div class="label">'+c.name+'</div><div class="value">'+c.rev.toFixed(0)+' 万</div>'+
+      '<div class="sub" style="color:var(--muted);">毛利率 '+c.gpMargin+'% | 占比 '+c.pct.toFixed(1)+'%</div>'+
+      '<div class="sub">'+yoyHtml+'</div></div>';
+  }).join('');
+}
+
+function renderCatBar() {
+  const cats = D.categories || [];
+  const cr = D.catRevenue || {};
+  const years = D.years || [];
+  const selY = parseInt(document.getElementById('catYearFilter').value) || D.cy;
+  const yi = years.indexOf(selY);
+  const pyi = yi - 1;
+  const names = cats.slice(0, 5).map(c => c.name);
+  const revs = names.map(function(n){ return cr[n] && yi>=0 ? (cr[n][yi]||0) : 0; });
+  const pyRevs = names.map(function(n){ return cr[n] && pyi>=0 ? (cr[n][pyi]||0) : 0; });
+  const colors = ['#5b9bd5','#4caf84','#ffa726','#ff5252','#a855f7'];
+  chCatBar.setOption({
+    tooltip: { trigger: 'axis', formatter: function(params){
+      var p=params[0]; var n=p.name; var i=names.indexOf(n);
+      var yoy=pyRevs[i]>0 ? ((p.value/pyRevs[i]-1)*100).toFixed(1) : null;
+      return n+'<br/>'+selY+': '+p.value.toFixed(1)+' 万<br/>同比: '+(yoy!=null?(yoy>0?'+':'')+yoy+'%':'无'); }},
+    grid: { left:60, right:20, top:40, bottom:30 },
+    xAxis: { type:'category', data:names },
+    yAxis: { type:'value', name:'万元' },
+    series: [{
+      type:'bar', data: revs.map(function(v,i){
+        var yoy=pyRevs[i]>0 ? ((v/pyRevs[i]-1)*100) : null;
+        return { value:v, itemStyle:{ color:colors[i%colors.length], borderRadius:[4,4,0,0] },
+          label:{ show:yoy!=null, position:'top', fontSize:10, color:yoy>0?'var(--red)':'var(--green)',
+            formatter:function(){ return (yoy>0?'+':'')+yoy.toFixed(1)+'%'; } } };
+      })
+    }]
+  });
+}
+
+function renderCatPie() {
+  const cats = D.categories || [];
+  const cr = D.catRevenue || {};
+  const years = D.years || [];
+  const selY = parseInt(document.getElementById('catYearFilter').value) || D.cy;
+  const yi = years.indexOf(selY);
+  const names = cats.slice(0, 5).map(c => c.name);
+  const data = names.map(function(n){
+    return {name:n, value: cr[n] && yi>=0 ? (cr[n][yi]||0) : 0};
+  }).filter(function(e){return e.value>0});
+  var totalVal = data.reduce(function(s,e){return s+e.value},0);
+  data.forEach(function(e){
+    var pct = totalVal>0 ? e.value/totalVal*100 : 0;
+    var showLbl = pct>5;
+    e.label = {show:showLbl};
+    e.labelLine = {show:showLbl};
+  });
+  var colors = ['#5b9bd5','#4caf84','#ffa726','#ff5252','#a855f7'];
+  data.forEach(function(e,i){ e.itemStyle = {color: colors[i%colors.length]}; });
+  chCatPie.setOption({
+    tooltip:{trigger:'item',formatter:function(p){return p.name+'<br/>'+p.value.toFixed(1)+' 万 ('+p.percent+'%)';}},
+    legend:{orient:'vertical',right:10,top:'center',textStyle:{color:'#a0a8c0',fontSize:10}},
+    series:[{type:'pie',radius:['40%','70%'],center:['35%','50%'],data:data,
+      label:{formatter:function(p){return p.name},fontSize:9},
+      emphasis:{itemStyle:{shadowBlur:10,shadowOffsetX:0,shadowColor:'rgba(0,0,0,0.5)'}}
+    }]
+  });
+}
+
+function renderCatMonthly() {
+  const cats = D.categories || [];
+  const cm = D.catMonthly || {};
+  const yms = D.yms || [];
+  const colors = ['#5b9bd5','#4caf84','#ffa726','#ff5252','#a855f7'];
+  const catNames = cats.slice(0, 5).map(c => c.name);
+  const series = catNames.map(function(n, i){ return {
+    name: n, type: 'line', data: cm[n] || [], smooth: true,
+    itemStyle: { color: colors[i] }, symbol: 'none'
+  }; });
+  chCatMonthly.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { data: catNames, bottom: 0, textStyle: { color: '#94a3b8', fontSize: 10 } },
+    grid: { left: 60, right: 20, top: 40, bottom: 70 },
+    xAxis: { type: 'category', data: yms, axisLabel: { rotate: 45, fontSize: 10, interval: Math.floor(yms.length/12)||'auto' } },
+    yAxis: { type: 'value', name: '万元' },
+    series: series
+  });
+}
+
+function renderCatStructure() {
+  const cats = D.categories || [];
+  const cr = D.catRevenue || {};
+  const years = D.years || [];
+  if (years.length < 2) return;
+  const y1 = years[years.length - 2], y2 = years[years.length - 1];
+  const yi1 = years.indexOf(y1), yi2 = years.indexOf(y2);
+  const names = cats.slice(0, 5).map(c => c.name);
+  const data1 = names.map(n => (cr[n] && cr[n][yi1]) ? cr[n][yi1] : 0);
+  const data2 = names.map(n => (cr[n] && cr[n][yi2]) ? cr[n][yi2] : 0);
+  chCatStructure.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { data: [y1+'年', y2+'年'], bottom: 0, textStyle: { color: '#94a3b8' } },
+    grid: { left: 60, right: 20, top: 40, bottom: 40 },
+    xAxis: { type: 'category', data: names },
+    yAxis: { type: 'value', name: '万元' },
+    series: [
+      { name: y1+'年', type: 'bar', data: data1, itemStyle: { color: '#94a3b8', borderRadius: [4,4,0,0] } },
+      { name: y2+'年', type: 'bar', data: data2, itemStyle: { color: '#5b9bd5', borderRadius: [4,4,0,0] } }
+    ]
+  });
+}
+
+function renderCatTable() {
+  const cats = D.categories || [];
+  const cr = D.catRevenue || {};
+  const cgpm = D.catGPMargin || {};
+  const years = D.years || [];
+  const selY = parseInt(document.getElementById('catYearFilter').value) || D.cy;
+  const yi = years.indexOf(selY);
+  const pyi = yi - 1;
+  const rows = cats.slice(0, 5).map(function(c){
+    var rev = cr[c.name] && yi>=0 ? (cr[c.name][yi]||0) : 0;
+    var pyRev = cr[c.name] && pyi>=0 ? (cr[c.name][pyi]||0) : 0;
+    var yoy = pyRev>0 ? ((rev/pyRev-1)*100) : null;
+    var gp = (cgpm[c.name] && yi>=0 ? (cgpm[c.name][yi]||0) : 0);
+    return {name:c.name, rev:rev, yoy:yoy, gpMargin:gp};
+  }).sort(function(a,b){return b.rev-a.rev;});
+  var thead = '<tr><th>品类</th><th>收入(万)</th><th>同比</th><th>毛利率</th></tr>';
+  var tbody = rows.map(function(r){
+    var yoyStr = r.yoy!=null ? (r.yoy>0?'+':'')+r.yoy.toFixed(1)+'%' : '无';
+    return '<tr><td><span style="cursor:pointer;color:var(--blue);" onclick="toggleCatDrill(\''+r.name.replace(/'/g,"\\'")+'\', this)">&#9654; '+r.name+'</span></td>'+
+    '<td>'+r.rev.toFixed(1)+'</td>'+
+    '<td style="color:'+(r.yoy>0?'var(--red)':r.yoy<0?'var(--green)':'var(--muted)')+'">'+yoyStr+'</td>'+
+    '<td>'+r.gpMargin+'%</td></tr>';
+  }).join('');
+  document.querySelector('#catTable thead').innerHTML = thead;
+  document.querySelector('#catTable tbody').innerHTML = tbody;
+}
+
+var drillCat = null;
+function toggleCatDrill(name, el) {
+  var dd = document.getElementById('catDrilldown');
+  if (drillCat === name) {
+    if (chCatDrill) { chCatDrill.dispose(); chCatDrill = null; }
+    dd.innerHTML = ''; drillCat = null;
+    el.innerHTML = el.innerHTML.replace('▼', '▶'); return;
+  }
+  if (chCatDrill) { chCatDrill.dispose(); chCatDrill = null; }
+  drillCat = name;
+  document.querySelectorAll('#catTable span').forEach(function(s){ if (s.innerHTML.indexOf('▼')>=0) s.innerHTML = s.innerHTML.replace('▼', '▶'); });
+  el.innerHTML = el.innerHTML.replace('▶', '▼');
+
+  function renderDrill(rows) {
+    // Product mix for selected category
+    var prodMap = {};
+    var selY = parseInt(document.getElementById('catYearFilter').value) || D.cy;
+    rows.filter(function(r){ return (r.cat || r.category || '') === name && (r.y||r.year) === selY; }).forEach(function(r){
+      var pn = r.product || '未知';
+      prodMap[pn] = (prodMap[pn]||0) + (r.amt||0);
+    });
+    var entries = Object.entries(prodMap).sort(function(a,b){ return b[1]-a[1]; });
+    var total = entries.reduce(function(s,e){ return s+e[1]; }, 0);
+    var prodHtml = '';
+    if (entries.length > 0) {
+      prodHtml = '<table style=\"font-size:12px;width:100%;\"><thead><tr><th>产品</th><th>金额(元)</th><th>占比</th></tr></thead><tbody>'+
+        entries.map(function(e){ return '<tr><td>'+e[0]+'</td><td>'+e[1].toLocaleString()+'</td><td>'+(total>0?(e[1]/total*100).toFixed(1):0)+'%</td></tr>'; }).join('')+
+        '</tbody></table>';
+    } else {
+      prodHtml = '<p style=\"color:var(--muted);\">该品类暂无产品数据</p>';
+    }
+    var monthly = (D.catMonthly || {})[name] || [];
+    var yms = D.yms || [];
+    dd.innerHTML = '<div class=\"cust-drilldown\"><h4 style=\"margin-bottom:12px;color:var(--blue);\">'+name+'</h4>'+
+      '<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:16px;\">'+
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📊 单品构成</h5>'+prodHtml+'</div>'+
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📈 月度收入趋势（万元）</h5><div class=\"chart-box-sm\" id=\"chCatDrillChart\"></div></div>'+
+      '</div></div>';
+    dd.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+    setTimeout(function(){
+      var ctr = document.getElementById('chCatDrillChart');
+      if (!ctr) return;
+      chCatDrill = echarts.init(ctr);
+      chCatDrill.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: 50, right: 15, top: 10, bottom: 30 },
+        xAxis: { type: 'category', data: yms, axisLabel: { rotate: 45, fontSize: 9, interval: Math.floor(yms.length/6)||'auto' } },
+        yAxis: { type: 'value', name: '万元' },
+        series: [{ type: 'line', data: monthly, smooth: true, itemStyle: { color: '#5b9bd5' }, areaStyle: { color: 'rgba(91,155,213,0.1)' } }]
+      });
+    }, 50);
+  }
+
+  if (R.length > 0) { renderDrill(R); }
+  else {
+    dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
+    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+      R = rows; renderDrill(R);
+    });
+  }
+}
+
+// ================================================================
+// DEPARTMENT TAB
+// ================================================================
+function initDeptTab() {
+  chDeptMonthly = echarts.init(document.getElementById('chDeptMonthly'));
+  chDeptYearly = echarts.init(document.getElementById('chDeptYearly'));
+  chDeptCustBar = echarts.init(document.getElementById('chDeptCustBar'));
+  chDeptCustPie = echarts.init(document.getElementById('chDeptCustPie'));
+  // Year filter
+  var dyf = document.getElementById('deptYearFilter');
+  dyf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>'; }).join('');
+  dyf.onchange = function(){ renderDeptKPIs(); renderDeptMonthly(); renderDeptYearly(); renderDeptCustBar(); renderDeptCustPie(); renderDeptCustTable(); };
+  // Dept customer filter dropdown
+  var dcf = document.getElementById('deptCustFilter');
+  var depts = D.departments || [];
+  dcf.innerHTML = depts.map(function(d){ return '<option value="'+d.name+'">'+d.name+'</option>'; }).join('');
+  dcf.onchange = function(){ renderDeptCustBar(); renderDeptCustPie(); renderDeptCustTable(); };
+  renderDeptKPIs(); renderDeptMonthly(); renderDeptYearly();
+  renderDeptCustBar(); renderDeptCustPie(); renderDeptCustTable();
+}
+
+function renderDeptCustTable() {
+  var selDept = document.getElementById('deptCustFilter').value;
+  function build(rows) {
+    var selY = parseInt(document.getElementById('deptYearFilter').value) || D.cy;
+    var yi = (D.years||[]).indexOf(selY);
+    // Aggregate per customer per department
+    var custMap = {};
+    rows.forEach(function(r){
+      var y = r.y||r.year;
+      if (y !== selY) return;
+      var d = r.dept || r.department || '';
+      if (selDept && d !== selDept) return;
+      var cn = r.customer || '';
+      var key = d+'|||'+cn;
+      if (!custMap[key]) custMap[key] = {dept:d, customer:cn, rev:0, cost:0};
+      custMap[key].rev += (r.amt||0);
+      custMap[key].cost += (r.cost||0);
+    });
+    var total = 0;
+    Object.values(custMap).forEach(function(c){ total += c.rev; });
+    var arr = Object.values(custMap).map(function(c){
+      return {dept:c.dept, customer:c.customer, rev:c.rev/10000,
+        gpMargin: c.rev>0 ? ((c.rev-c.cost)/c.rev*100).toFixed(1) : 0,
+        pct: total>0 ? (c.rev/total*100) : 0};
+    }).sort(function(a,b){ return b.rev-a.rev; });
+    var labels = ['客户','部门','收入(万)','毛利率','占比'];
+    var thead = '<tr>'+labels.map(function(l){ return '<th>'+l+'</th>'; }).join('')+'</tr>';
+    var tbody = arr.map(function(c){
+      return '<tr><td><span style="cursor:pointer;color:var(--blue);" onclick="toggleDeptDrill(\''+c.customer.replace(/'/g,"\\'")+'\', this)">▶ '+c.customer+'</span></td>'+
+        '<td>'+c.dept+'</td><td>'+c.rev.toFixed(1)+'</td>'+
+        '<td style="color:'+(c.gpMargin>=30?'var(--green)':c.gpMargin>=10?'var(--muted)':'var(--red)')+'">'+c.gpMargin+'%</td>'+
+        '<td>'+c.pct.toFixed(1)+'%</td></tr>';
+    }).join('');
+    document.querySelector('#deptCustTable thead').innerHTML = thead;
+    document.querySelector('#deptCustTable tbody').innerHTML = tbody;
+  }
+  if (R.length>0) { build(R); }
+  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
+}
+
+var drillDeptCust = null, chDeptDrill = null;
+function toggleDeptDrill(name, el) {
+  var dd = document.getElementById('deptDrilldown');
+  if (drillDeptCust === name) {
+    if (chDeptDrill) { chDeptDrill.dispose(); chDeptDrill = null; }
+    dd.innerHTML = ''; drillDeptCust = null;
+    el.innerHTML = el.innerHTML.replace('▼','▶'); return;
+  }
+  if (chDeptDrill) { chDeptDrill.dispose(); chDeptDrill = null; }
+  drillDeptCust = name;
+  document.querySelectorAll('#deptCustTable span').forEach(function(s){ if(s.innerHTML.includes('▼')) s.innerHTML = s.innerHTML.replace('▼','▶'); });
+  el.innerHTML = el.innerHTML.replace('▶','▼');
+
+  function renderDrill(rows) {
+    var cy = D.cy;
+    var custMap = {};
+    rows.filter(function(r){ return r.customer === name && (r.y||r.year) === cy; }).forEach(function(r){
+      var pn = r.product || '未知';
+      custMap[pn] = (custMap[pn]||0) + Math.abs(r.amt||0);
+    });
+    var entries = Object.entries(custMap).sort(function(a,b){ return b[1]-a[1]; });
+    var total = entries.reduce(function(s,e){ return s+e[1]; },0);
+    var prodHtml = entries.length>0
+      ? entries.map(function(e){ return '<tr><td>'+e[0]+'</td><td>'+((Math.abs(e[1])/(total||1))*100).toFixed(1)+'%</td><td>'+(e[1]/10000).toFixed(1)+' 万</td></tr>'; }).join('')
+      : '<tr><td colspan="3" style="color:var(--muted);">无产品数据</td></tr>';
+
+    // Monthly trend for this customer
+    var cm = D.custMonthly || {};
+    var months = (cm[name]||[]).slice(-24);
+    var mYms = (D.yms||[]).slice(-24);
+
+    dd.innerHTML = '<div class="cust-drilldown">'+
+      '<h4 style="margin-bottom:12px;">📋 '+name+' — 产品构成与月度趋势</h4>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">'+
+      '<div><h5 style="color:var(--muted);margin-bottom:6px;">📦 产品构成（今年）</h5>'+
+      '<table style="font-size:12px;width:100%;"><thead><tr><th>产品</th><th>占比</th><th>金额</th></tr></thead><tbody>'+prodHtml+'</tbody></table></div>'+
+      '<div><h5 style="color:var(--muted);margin-bottom:6px;">📈 月度收入趋势</h5>'+
+      '<div class="chart-box" id="chDeptDrill"></div></div>'+
+      '</div></div>';
+
+    // Render monthly chart
+    setTimeout(function(){
+      var dch = echarts.init(document.getElementById('chDeptDrill'));
+      chDeptDrill = dch;
+      dch.setOption({
+        tooltip:{trigger:'axis'},
+        grid:{left:60,right:20,top:10,bottom:30},
+        xAxis:{type:'category',data:mYms,axisLabel:{fontSize:9,rotate:45,interval:Math.floor(mYms.length/6)||'auto'}},
+        yAxis:{type:'value',name:'万元'},
+        series:[{type:'bar',data:months,itemStyle:{color:'#5b9bd5'}}]
+      });
+    }, 100);
+  }
+  if (R.length>0) { renderDrill(R); }
+  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){ renderDrill(rows); }); }
+}
+
+function renderDeptCustBar() {
+  var dept = document.getElementById('deptCustFilter').value;
+  var dcr = D.deptCustRevenue || {};
+  var cmap = dcr[dept] || {};
+  var selY = parseInt(document.getElementById('deptYearFilter').value) || D.cy;
+  var yi = (D.years||[]).indexOf(selY);
+  var entries = Object.entries(cmap).map(function(e){
+    return {name:e[0], rev: yi>=0 && e[1][yi] ? e[1][yi] : 0};
+  }).filter(function(e){return e.rev>0}).sort(function(a,b){return b.rev-a.rev}).slice(0,10);
+  chDeptCustBar.setOption({
+    tooltip:{trigger:'axis',formatter:function(p){return '<b>'+p[0].name+'</b><br/>收入: '+p[0].value.toFixed(1)+' 万';}},
+    grid:{left:120,right:20,top:40,bottom:70},
+    xAxis:{type:'category',data:entries.map(function(e){return e.name}),axisLabel:{fontSize:10,rotate:45,overflow:'truncate',width:80}},
+    yAxis:{type:'value',name:'万元'},
+    series:[{type:'bar',data:entries.map(function(e){return e.rev}),itemStyle:{color:'#5b9bd5',borderRadius:[4,4,0,0]}}]
+  });
+}
+
+function renderDeptCustPie() {
+  var dept = document.getElementById('deptCustFilter').value;
+  var dcr = D.deptCustRevenue || {};
+  var cmap = dcr[dept] || {};
+  var selY = parseInt(document.getElementById('deptYearFilter').value) || D.cy;
+  var yi = (D.years||[]).indexOf(selY);
+  var data = Object.entries(cmap).map(function(e){
+    return {name:e[0], value: yi>=0 && e[1][yi] ? e[1][yi] : 0};
+  }).filter(function(e){return e.value>0}).sort(function(a,b){return b.value-a.value});
+  var top = data.slice(0,8), other = data.slice(8).reduce(function(s,e){return s+e.value},0);
+  if (other>0) top.push({name:'其他',value:other,itemStyle:{color:'#94a3b8'}});
+  // 按占比逐项控制：<5% 的扇区同时隐藏标签与引导线
+  var totalVal = top.reduce(function(s,e){return s+e.value},0);
+  top.forEach(function(e){
+    var pct = totalVal>0 ? e.value/totalVal*100 : 0;
+    var showLbl = pct>5;
+    e.label = {show:showLbl};
+    e.labelLine = {show:showLbl};
+  });
+  chDeptCustPie.setOption({
+    tooltip:{trigger:'item',formatter:function(p){return p.name+'<br/>'+p.value.toFixed(1)+' 万 ('+p.percent+'%)';}},
+    legend:{orient:'vertical',right:10,top:'center',textStyle:{color:'#a0a8c0',fontSize:10}},
+    series:[{type:'pie',radius:['40%','70%'],center:['35%','50%'],data:top,
+      label:{formatter:function(p){return p.name},fontSize:9},
+      emphasis:{itemStyle:{shadowBlur:10,shadowOffsetX:0,shadowColor:'rgba(0,0,0,0.5)'}}
+    }]
+  });
+}
+
+function renderDeptYearly() {
+  var depts = D.departments || [];
+  var dr = D.deptRevenue || {};
+  var years = (D.years||[]).map(function(y){return y+'年'});
+  var colors = ['#5b9bd5','#4caf84','#ffa726','#ab68d8','#ff5252'];
+  var series = depts.map(function(d,i){ return {
+    name:d.name, type:'bar', stack:'total', data:dr[d.name]||[],
+    itemStyle:{color:colors[i%5]}, emphasis:{focus:'series'},
+    label:{show:true,position:'inside',fontSize:9,color:'#fff',formatter:function(p){
+      var arr=dr[p.seriesName]||[]; var yi=p.dataIndex;
+      if(yi===0||yi>=arr.length)return'';
+      var prev=arr[yi-1],curr=arr[yi];
+      if(!prev||prev===0)return'';
+      var yoy=((curr-prev)/prev*100).toFixed(0);
+      return yoy>0?'+'+yoy+'%':yoy+'%';
+    }}
+  };});
+  var totals = years.map(function(_,i){ return depts.reduce(function(s,d){return s+((dr[d.name]||[])[i]||0)},0); });
+  series.push({name:'合计',type:'line',data:totals,symbol:'none',
+    lineStyle:{color:'#94a3b8',type:'dashed',width:1},
+    label:{show:true,position:'top',fontSize:10,color:'#94a3b8',formatter:function(p){return p.value.toFixed(0)}}
+  });
+  chDeptYearly.setOption({
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    legend:{data:depts.map(function(d){return d.name}),bottom:0,textStyle:{color:'#a0a8c0',fontSize:10}},
+    grid:{left:60,right:20,top:40,bottom:70},
+    xAxis:{type:'category',data:years},
+    yAxis:{type:'value',name:'万元'},
+    series:series
+  });
+}
+
+function renderDeptKPIs() {
+  const depts = D.departments || [];
+  const dgpm = D.deptGPMargin || {};
+  const dr = D.deptRevenue || {};
+  const cy = parseInt(document.getElementById('deptYearFilter').value) || D.cy, py = cy - 1;
+  const yi = (D.years||[]).indexOf(cy);
+  const totalRev = D.kpiByYear && D.kpiByYear[String(cy)] ? D.kpiByYear[String(cy)].revenue / 10000 : 1;
+  function build(rows) {
+    // Compute customer count per dept per year
+    var deptCust = {};
+    depts.forEach(function(d){ deptCust[d.name] = {cy:new Set(), py:new Set()}; });
+    rows.forEach(function(r){
+      var d = r.dept || r.department || '';
+      var y = r.y || r.year;
+      if (deptCust[d]) {
+        if (y === cy) deptCust[d].cy.add(r.customer);
+        if (y === py) deptCust[d].py.add(r.customer);
+      }
+    });
+    const cards = depts.map(d => {
+      const rev = dr[d.name] && yi >= 0 ? dr[d.name][yi] : (d.amt/10000);
+      var custCy = (deptCust[d.name]||{}).cy ? deptCust[d.name].cy.size : 0;
+      var custPy = (deptCust[d.name]||{}).py ? deptCust[d.name].py.size : 0;
+      var custYoY = custPy > 0 ? ((custCy/custPy-1)*100) : null;
+      return { name: d.name, rev: rev, gpMargin: (dgpm[d.name] && yi>=0 ? (dgpm[d.name][yi]||0) : 0), pct: totalRev>0?(rev/totalRev*100):0, cust:custCy, custYoY:custYoY };
+    });
+    document.getElementById('deptKPIRow').innerHTML = cards.map(c => {
+      var custStr = c.cust+' 个客户';
+      if (c.custYoY != null) custStr += ' <span style="color:'+(c.custYoY>=0?'var(--red)':'var(--green)')+';font-size:11px;">同比 '+(c.custYoY>=0?'+':'')+c.custYoY.toFixed(1)+'%</span>';
+      return '<div class="kpi-card"><div class="label">'+c.name+'</div><div class="value">'+c.rev.toFixed(0)+' 万</div>'+
+        '<div class="sub" style="color:var(--muted);">毛利率 '+c.gpMargin+'% | 占比 '+c.pct.toFixed(1)+'%</div>'+
+        '<div class="sub" style="color:var(--muted);">'+custStr+'</div></div>';
+    }).join('');
+  }
+  if (R.length > 0) { build(R); }
+  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
+}
+
+function renderDeptMonthly() {
+  const depts = D.departments || [];
+  const dm = D.deptMonthly || {};
+  const yms = D.yms || [];
+  const colors = ['#5b9bd5','#4caf84'];
+  const series = depts.map((d, i) => ({
+    name: d.name, type: 'line', data: dm[d.name] || [], smooth: true,
+    itemStyle: { color: colors[i] }, symbol: 'none',
+    areaStyle: { color: i===0 ? 'rgba(91,155,213,0.1)' : 'rgba(76,175,132,0.1)' }
+  }));
+  chDeptMonthly.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { data: depts.map(d=>d.name), bottom: 0, textStyle: { color: '#94a3b8' } },
+    grid: { left: 60, right: 20, top: 40, bottom: 70 },
+    xAxis: { type: 'category', data: yms, axisLabel: { rotate: 45, fontSize: 10, interval: Math.floor(yms.length/12)||'auto' } },
+    yAxis: { type: 'value', name: '万元' },
+    series: series
+  });
+}
+
+// ================================================================
+// SALESPERSON TAB
+// ================================================================
+function initSpTab() {
+  chSpBar = echarts.init(document.getElementById('chSpBar'));
+  chSpScatter = echarts.init(document.getElementById('chSpScatter'));
+  const sel = document.getElementById('spYearFilter');
+  sel.innerHTML = (D.years||[]).map(y => '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>').join('');
+  sel.onchange = () => { renderSpKPIs(); renderSpBar(); renderSpScatter(); renderSpTable(); };
+  document.getElementById('spSortBy').onchange = renderSpTable;
+  renderSpKPIs(); renderSpBar(); renderSpScatter(); renderSpTable();
+}
+
+function getFilteredSP(sortBy, selY) {
+  const sps = D.salespersons || [];
+  const sr = D.spRevenue || {};
+  const sc = D.spCustomers || {};
+  const sgpm = D.spGPMargin || {};
+  const years = D.years || [];
+  const yi = years.indexOf(selY);
+  const arr = sps.map(s => {
+    const rev = sr[s.name] && yi >= 0 ? (sr[s.name][yi] || 0) : (s.amt / 10000);
+    const cust = (sc[s.name] && yi >= 0) ? (sc[s.name][yi] || 0) : 0;
+    const gpm = (sgpm[s.name] && yi >= 0) ? (sgpm[s.name][yi] || 0) : 0;
+    return { name: s.name, rev: rev, customers: cust, gpMargin: gpm, avgOrder: cust>0 ? (rev/cust) : 0 };
+  });
+  if (sortBy === 'customers') arr.sort((a,b) => b.customers - a.customers);
+  else if (sortBy === 'gp_margin') arr.sort((a,b) => b.gpMargin - a.gpMargin);
+  else arr.sort((a,b) => b.rev - a.rev);
+  const q = (document.getElementById('spSearch').value || '').toLowerCase();
+  return q ? arr.filter(s => s.name.toLowerCase().includes(q)) : arr;
+}
+
+function renderSpKPIs() {
+  const selY = parseInt(document.getElementById('spYearFilter').value) || D.cy;
+  // 用未经搜索过滤的全量（搜索不应改变整体KPI）
+  const all = getFilteredSPRaw(selY).filter(s => s.rev > 0);
+  const count = all.length;
+  const totalRev = all.reduce((s,x)=>s+x.rev, 0);
+  const totalCust = all.reduce((s,x)=>s+x.customers, 0);
+  const avgRev = count>0 ? totalRev/count : 0;
+  const avgCust = count>0 ? totalCust/count : 0;
+  // 收入加权平均毛利率
+  const wGP = totalRev>0 ? all.reduce((s,x)=>s+x.gpMargin*x.rev, 0)/totalRev : 0;
+  const cards = [
+    { label:'业务员人数', value: count+' 人', sub:selY+' 年有业绩' },
+    { label:'人均收入', value: avgRev.toFixed(0)+' 万', sub:'合计 '+totalRev.toFixed(0)+' 万' },
+    { label:'人均客户数', value: avgCust.toFixed(0)+' 个', sub:'覆盖 '+totalCust+' 人次' },
+    { label:'平均毛利率', value: wGP.toFixed(1)+' %', sub:'收入加权' }
+  ];
+  document.getElementById('spKPIRow').innerHTML = cards.map(c =>
+    '<div class="kpi-card"><div class="label">'+c.label+'</div><div class="value">'+c.value+'</div>'+
+    '<div class="sub" style="color:var(--muted);">'+c.sub+'</div></div>'
+  ).join('');
+}
+
+// KPI 用：不受搜索框影响的全量业务员数据
+function getFilteredSPRaw(selY) {
+  const sps = D.salespersons || [];
+  const sr = D.spRevenue || {};
+  const sc = D.spCustomers || {};
+  const sgpm = D.spGPMargin || {};
+  const yi = (D.years||[]).indexOf(selY);
+  return sps.map(s => {
+    const rev = sr[s.name] && yi >= 0 ? (sr[s.name][yi] || 0) : (s.amt / 10000);
+    const cust = (sc[s.name] && yi >= 0) ? (sc[s.name][yi] || 0) : 0;
+    const gpm = (sgpm[s.name] && yi >= 0) ? (sgpm[s.name][yi] || 0) : 0;
+    return { name: s.name, rev: rev, customers: cust, gpMargin: gpm };
+  });
+}
+
+function renderSpBar() {
+  const selY = parseInt(document.getElementById('spYearFilter').value) || D.cy;
+  const sorted = getFilteredSP('revenue', selY).slice(0, 15);
+  const revenues = sorted.map(s=>s.rev);
+  var sum=0; for(var i=0;i<revenues.length;i++) sum+=revenues[i];
+  var avg = revenues.length>0 ? Math.round(sum/revenues.length*10)/10 : 0;
+  chSpBar.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 80, right: 20, top: 40, bottom: 30 },
+    xAxis: { type: 'category', data: sorted.map(s=>s.name), axisLabel: { fontSize: 10, rotate: 30 } },
+    yAxis: { type: 'value', name: '万元' },
+    series: [{ type: 'bar', data: revenues, itemStyle: { color: '#5b9bd5', borderRadius: [4,4,0,0] },
+      markLine: { silent: true, symbol: 'none', label: { show: true, position: 'end', formatter: '均 '+avg, fontSize: 10, color: '#ffa726' }, data: [{ yAxis: avg }], lineStyle: { color: '#ffa726', type: 'dashed' } }
+    }]
+  });
+}
+
+function renderSpScatter() {
+  const selY = parseInt(document.getElementById('spYearFilter').value) || D.cy;
+  const sps = getFilteredSP('revenue', selY);
+  // 过滤异常毛利率：< -100% 或 > 100% 视为异常数据，不进入气泡图
+  const valid = sps.filter(s => s.gpMargin >= -100 && s.gpMargin <= 100);
+  const outliers = sps.filter(s => s.gpMargin < -100 || s.gpMargin > 100);
+  const data = valid.map(s => [s.rev, s.gpMargin, s.customers, s.name]);
+  // 异常数据提示
+  const noteEl = document.getElementById('spScatterNote');
+  if (noteEl && outliers.length > 0) {
+    const names = outliers.map(s => s.name+'('+s.gpMargin+'%)').join('、');
+    noteEl.innerHTML = '⚠️ 已过滤 '+outliers.length+' 个异常毛利率数据：'+names+' （毛利率超出 -100%~100% 范围，不参与气泡图展示，原始数据未删除）';
+    noteEl.style.display = '';
+  } else if (noteEl) {
+    noteEl.style.display = 'none';
+  }
+  chSpScatter.setOption({
+    tooltip: { trigger: 'item', formatter: p => '<b>'+p.data[3]+'</b><br/>收入: '+p.data[0].toFixed(1)+' 万<br/>毛利率: '+p.data[1]+'%<br/>客户数: '+p.data[2] },
+    grid: { left: 60, right: 30, top: 40, bottom: 40 },
+    xAxis: { type: 'value', name: '收入（万元）' },
+    yAxis: { type: 'value', name: '毛利率（%）' },
+    series: [{ type: 'scatter', data: data, symbolSize: val => Math.max(6, Math.min(40, (val[2]||1)*2)),
+      itemStyle: { color: '#5b9bd5', opacity: 0.7 },
+      emphasis: { itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1 } },
+      label: { show: true, position: 'right', fontSize: 9, color: '#94a3b8',
+        formatter: p => p.data[3].length > 4 ? p.data[3].slice(0,4)+'..' : p.data[3] }
+    }]
+  });
+}
+
+function renderSpTable() {
+  const sortBy = document.getElementById('spSortBy').value;
+  const selY = parseInt(document.getElementById('spYearFilter').value) || D.cy;
+  const sps = getFilteredSP(sortBy, selY);
+  const labels = ['销售员', '收入(万元)', '客户数', '毛利率', '客单价(万)'];
+  const thead = '<tr>'+labels.map(l => '<th>'+l+'</th>').join('')+'</tr>';
+  const tbody = sps.map(s =>
+    '<tr><td><span style="cursor:pointer;color:var(--blue);" onclick="toggleSpDrill(\''+s.name.replace(/'/g,"\\'")+'\', this)">&#9654; '+s.name+'</span></td>'+
+    '<td>'+s.rev.toFixed(1)+'</td><td>'+s.customers+'</td>'+
+    '<td>'+s.gpMargin+'%</td><td>'+s.avgOrder.toFixed(1)+'</td></tr>'
+  ).join('');
+  document.querySelector('#spTable thead').innerHTML = thead;
+  document.querySelector('#spTable tbody').innerHTML = tbody;
+}
+
+var drillSp = null;
+function toggleSpDrill(name, el) {
+  var dd = document.getElementById('spDrilldown');
+  if (drillSp === name) {
+    if (chSpDrill) { chSpDrill.dispose(); chSpDrill = null; }
+    dd.innerHTML = ''; drillSp = null;
+    el.innerHTML = el.innerHTML.replace('▼', '▶'); return;
+  }
+  if (chSpDrill) { chSpDrill.dispose(); chSpDrill = null; }
+  drillSp = name;
+  document.querySelectorAll('#spTable span').forEach(function(s){ if (s.innerHTML.indexOf('▼')>=0) s.innerHTML = s.innerHTML.replace('▼', '▶'); });
+  el.innerHTML = el.innerHTML.replace('▶', '▼');
+
+  function renderDrill(rows) {
+    var selY = parseInt(document.getElementById('spYearFilter').value) || D.cy;
+    // 客户构成（选中年份）
+    var custMap = {};
+    rows.filter(function(r){ return (r.sp||'') === name && (r.y||r.year) === selY; }).forEach(function(r){
+      var cn = r.customer || '未知';
+      custMap[cn] = (custMap[cn]||0) + (r.amt||0);
+    });
+    var entries = Object.entries(custMap).sort(function(a,b){ return b[1]-a[1]; });
+    var total = entries.reduce(function(s,e){ return s+e[1]; }, 0);
+    var custHtml;
+    if (entries.length > 0) {
+      custHtml = '<table style=\"font-size:12px;width:100%;\"><thead><tr><th>客户</th><th>金额(元)</th><th>占比</th></tr></thead><tbody>'+
+        entries.slice(0,20).map(function(e){ return '<tr><td>'+e[0]+'</td><td>'+e[1].toLocaleString()+'</td><td>'+(total>0?(e[1]/total*100).toFixed(1):0)+'%</td></tr>'; }).join('')+
+        '</tbody></table>'+(entries.length>20?'<p style=\"color:var(--muted);font-size:11px;margin-top:4px;\">仅显示前20名，共 '+entries.length+' 个客户</p>':'');
+    } else {
+      custHtml = '<p style=\"color:var(--muted);\">该业务员本年暂无客户数据</p>';
+    }
+    // 月度趋势（全周期，从R聚合）
+    var yms = D.yms || [];
+    var moMap = {};
+    rows.filter(function(r){ return (r.sp||'') === name; }).forEach(function(r){
+      var k = r.ym; moMap[k] = (moMap[k]||0) + (r.amt||0);
+    });
+    var moData = yms.map(function(k){ return Math.round((moMap[k]||0)/1000)/10; });
+    dd.innerHTML = '<div class=\"cust-drilldown\"><h4 style=\"margin-bottom:12px;color:var(--blue);\">'+name+'</h4>'+
+      '<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:16px;\">'+
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📊 客户构成</h5>'+custHtml+'</div>'+
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📈 月度收入趋势（万元）</h5><div class=\"chart-box-sm\" id=\"chSpDrillChart\"></div></div>'+
+      '</div></div>';
+    dd.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+    setTimeout(function(){
+      var ctr = document.getElementById('chSpDrillChart');
+      if (!ctr) return;
+      chSpDrill = echarts.init(ctr);
+      chSpDrill.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: 50, right: 15, top: 10, bottom: 30 },
+        xAxis: { type: 'category', data: yms, axisLabel: { rotate: 45, fontSize: 9, interval: Math.floor(yms.length/6)||'auto' } },
+        yAxis: { type: 'value', name: '万元' },
+        series: [{ type: 'line', data: moData, smooth: true, itemStyle: { color: '#5b9bd5' }, areaStyle: { color: 'rgba(91,155,213,0.1)' } }]
+      });
+    }, 50);
+  }
+
+  if (R.length > 0) { renderDrill(R); }
+  else {
+    dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
+    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+      R = rows; renderDrill(R);
+    });
+  }
+}
+
+// ================================================================
+// BRAND TAB
+// ================================================================
+function initBrandTab() {
+  chBrandMonthly = echarts.init(document.getElementById('chBrandMonthly'));
+  chBrandGP = echarts.init(document.getElementById('chBrandGP'));
+  chBrandBar = echarts.init(document.getElementById('chBrandBar'));
+  chBrandPie = echarts.init(document.getElementById('chBrandPie'));
+  var byf = document.getElementById('brandYearFilter');
+  byf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>'; }).join('');
+  byf.onchange = function(){ renderBrandKPIs(); renderBrandBar(); renderBrandPie(); renderBrandMonthly(); renderBrandGP(); renderBrandTable(); };
+  renderBrandKPIs(); renderBrandBar(); renderBrandPie(); renderBrandMonthly(); renderBrandGP(); renderBrandTable();
+}
+
+var BRAND_COLORS = ['#5b9bd5','#4caf84','#ffa726','#ff5252','#a855f7','#26c6da','#ec407a'];
+
+function renderBrandKPIs() {
+  const brands = D.brands || [];
+  const bgpm = D.brandGPMargin || {};
+  const br = D.brandRevenue || {};
+  const selY = parseInt(document.getElementById('brandYearFilter').value) || D.cy;
+  const yi = (D.years||[]).indexOf(selY);
+  const totalRev = D.kpiByYear && D.kpiByYear[String(selY)] ? D.kpiByYear[String(selY)].revenue / 10000 : 1;
+  const cards = brands.slice(0, 5).map(b => {
+    const rev = br[b.name] && yi >= 0 ? br[b.name][yi] : (b.amt/10000);
+    return { name: b.name, rev: rev,
+      gpMargin: (bgpm[b.name] && yi>=0 ? (bgpm[b.name][yi]||0) : 0),
+      pct: totalRev>0?(rev/totalRev*100):0 };
+  });
+  document.getElementById('brandKPIRow').innerHTML = cards.map(c =>
+    '<div class="kpi-card"><div class="label">'+c.name+'</div><div class="value">'+c.rev.toFixed(0)+' 万</div>'+
+    '<div class="sub" style="color:var(--muted);">毛利率 '+c.gpMargin+'% | 占比 '+c.pct.toFixed(1)+'%</div></div>'
+  ).join('');
+}
+
+function renderBrandBar() {
+  const brands = D.brands || [];
+  const br = D.brandRevenue || {};
+  const years = D.years || [];
+  const selY = parseInt(document.getElementById('brandYearFilter').value) || D.cy;
+  const yi = years.indexOf(selY);
+  const pyi = yi - 1;
+  const names = brands.slice(0, 7).map(b => b.name);
+  const revs = names.map(function(n){ return br[n] && yi>=0 ? (br[n][yi]||0) : 0; });
+  const pyRevs = names.map(function(n){ return br[n] && pyi>=0 ? (br[n][pyi]||0) : 0; });
+  chBrandBar.setOption({
+    tooltip: { trigger: 'axis', formatter: function(params){
+      var p=params[0]; var i=names.indexOf(p.name);
+      var yoy=pyRevs[i]>0 ? ((p.value/pyRevs[i]-1)*100).toFixed(1) : null;
+      return p.name+'<br/>'+selY+': '+p.value.toFixed(1)+' 万<br/>同比: '+(yoy!=null?(yoy>0?'+':'')+yoy+'%':'无'); }},
+    grid: { left:60, right:20, top:40, bottom:30 },
+    xAxis: { type:'category', data:names },
+    yAxis: { type:'value', name:'万元' },
+    series: [{
+      type:'bar', data: revs.map(function(v,i){
+        var yoy=pyRevs[i]>0 ? ((v/pyRevs[i]-1)*100) : null;
+        return { value:v, itemStyle:{ color:BRAND_COLORS[i%BRAND_COLORS.length], borderRadius:[4,4,0,0] },
+          label:{ show:yoy!=null, position:'top', fontSize:10, color:yoy>0?'var(--red)':'var(--green)',
+            formatter:function(){ return (yoy>0?'+':'')+yoy.toFixed(1)+'%'; } } };
+      })
+    }]
+  });
+}
+
+function renderBrandPie() {
+  const brands = D.brands || [];
+  const br = D.brandRevenue || {};
+  const years = D.years || [];
+  const selY = parseInt(document.getElementById('brandYearFilter').value) || D.cy;
+  const yi = years.indexOf(selY);
+  const names = brands.slice(0, 7).map(b => b.name);
+  const data = names.map(function(n){
+    return {name:n, value: br[n] && yi>=0 ? (br[n][yi]||0) : 0};
+  }).filter(function(e){return e.value>0});
+  var totalVal = data.reduce(function(s,e){return s+e.value},0);
+  data.forEach(function(e,i){
+    var pct = totalVal>0 ? e.value/totalVal*100 : 0;
+    var showLbl = pct>5;
+    e.label = {show:showLbl};
+    e.labelLine = {show:showLbl};
+    e.itemStyle = {color: BRAND_COLORS[i%BRAND_COLORS.length]};
+  });
+  chBrandPie.setOption({
+    tooltip:{trigger:'item',formatter:function(p){return p.name+'<br/>'+p.value.toFixed(1)+' 万 ('+p.percent+'%)';}},
+    legend:{orient:'vertical',right:10,top:'center',textStyle:{color:'#a0a8c0',fontSize:10}},
+    series:[{type:'pie',radius:['40%','70%'],center:['35%','50%'],data:data,
+      label:{formatter:function(p){return p.name},fontSize:9},
+      emphasis:{itemStyle:{shadowBlur:10,shadowOffsetX:0,shadowColor:'rgba(0,0,0,0.5)'}}
+    }]
+  });
+}
+
+function renderBrandMonthly() {
+  const brands = D.brands || [];
+  const bm = D.brandMonthly || {};
+  const yms = D.yms || [];
+  const names = brands.slice(0, 5).map(b => b.name);
+  const series = names.map(function(n, i){ return {
+    name: n, type: 'line', data: bm[n] || [], smooth: true,
+    itemStyle: { color: BRAND_COLORS[i%BRAND_COLORS.length] }, symbol: 'none'
+  }; });
+  chBrandMonthly.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { data: names, bottom: 0, textStyle: { color: '#94a3b8', fontSize: 10 } },
+    grid: { left: 60, right: 20, top: 40, bottom: 70 },
+    xAxis: { type: 'category', data: yms, axisLabel: { rotate: 45, fontSize: 10, interval: Math.floor(yms.length/12)||'auto' } },
+    yAxis: { type: 'value', name: '万元' },
+    series: series
+  });
+}
+
+function renderBrandGP() {
+  const brands = D.brands || [];
+  const bgpm = D.brandGPMargin || {};
+  const years = D.years || [];
+  const selY = parseInt(document.getElementById('brandYearFilter').value) || D.cy;
+  const yi = years.indexOf(selY);
+  const names = brands.slice(0, 7).map(b => b.name);
+  chBrandGP.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 60, right: 20, top: 40, bottom: 30 },
+    xAxis: { type: 'category', data: names },
+    yAxis: { type: 'value', name: '%' },
+    series: [{ type: 'bar', data: names.map(function(n){ return (bgpm[n] && yi>=0) ? (bgpm[n][yi]||0) : 0; }),
+      itemStyle: { color: '#4caf84', borderRadius: [4,4,0,0] },
+      label: { show: true, position: 'top', fontSize: 12, formatter: '{c}%' }
+    }]
+  });
+}
+
+function renderBrandTable() {
+  const brands = D.brands || [];
+  const br = D.brandRevenue || {};
+  const bgpm = D.brandGPMargin || {};
+  const years = D.years || [];
+  const selY = parseInt(document.getElementById('brandYearFilter').value) || D.cy;
+  const yi = years.indexOf(selY);
+  const pyi = yi - 1;
+  const rows = brands.slice(0, 7).map(function(b){
+    var rev = br[b.name] && yi>=0 ? (br[b.name][yi]||0) : 0;
+    var pyRev = br[b.name] && pyi>=0 ? (br[b.name][pyi]||0) : 0;
+    var yoy = pyRev>0 ? ((rev/pyRev-1)*100) : null;
+    var gp = (bgpm[b.name] && yi>=0 ? (bgpm[b.name][yi]||0) : 0);
+    return {name:b.name, rev:rev, yoy:yoy, gpMargin:gp};
+  }).sort(function(a,b){return b.rev-a.rev;});
+  var thead = '<tr><th>品牌</th><th>收入(万)</th><th>同比</th><th>毛利率</th></tr>';
+  var tbody = rows.map(function(r){
+    var yoyStr = r.yoy!=null ? (r.yoy>0?'+':'')+r.yoy.toFixed(1)+'%' : '无';
+    return '<tr><td><span style="cursor:pointer;color:var(--blue);" onclick="toggleBrandDrill(\''+r.name.replace(/'/g,"\\'")+'\', this)">&#9654; '+r.name+'</span></td>'+
+    '<td>'+r.rev.toFixed(1)+'</td>'+
+    '<td style="color:'+(r.yoy>0?'var(--red)':r.yoy<0?'var(--green)':'var(--muted)')+'">'+yoyStr+'</td>'+
+    '<td>'+r.gpMargin+'%</td></tr>';
+  }).join('');
+  document.querySelector('#brandTable thead').innerHTML = thead;
+  document.querySelector('#brandTable tbody').innerHTML = tbody;
+}
+
+var drillBrand = null;
+function toggleBrandDrill(name, el) {
+  var dd = document.getElementById('brandDrilldown');
+  if (drillBrand === name) {
+    if (chBrandDrill) { chBrandDrill.dispose(); chBrandDrill = null; }
+    dd.innerHTML = ''; drillBrand = null;
+    el.innerHTML = el.innerHTML.replace('▼', '▶'); return;
+  }
+  if (chBrandDrill) { chBrandDrill.dispose(); chBrandDrill = null; }
+  drillBrand = name;
+  document.querySelectorAll('#brandTable span').forEach(function(s){ if (s.innerHTML.indexOf('▼')>=0) s.innerHTML = s.innerHTML.replace('▼', '▶'); });
+  el.innerHTML = el.innerHTML.replace('▶', '▼');
+
+  function renderDrill(rows) {
+    var selY = parseInt(document.getElementById('brandYearFilter').value) || D.cy;
+    // 产品构成（选中年份）
+    var prodMap = {};
+    rows.filter(function(r){ return (r.brand||'') === name && (r.y||r.year) === selY; }).forEach(function(r){
+      var pn = r.product || '未知';
+      prodMap[pn] = (prodMap[pn]||0) + (r.amt||0);
+    });
+    var entries = Object.entries(prodMap).sort(function(a,b){ return b[1]-a[1]; });
+    var total = entries.reduce(function(s,e){ return s+e[1]; }, 0);
+    var prodHtml;
+    if (entries.length > 0) {
+      prodHtml = '<table style=\"font-size:12px;width:100%;\"><thead><tr><th>产品</th><th>金额(元)</th><th>占比</th></tr></thead><tbody>'+
+        entries.slice(0,20).map(function(e){ return '<tr><td>'+e[0]+'</td><td>'+e[1].toLocaleString()+'</td><td>'+(total>0?(e[1]/total*100).toFixed(1):0)+'%</td></tr>'; }).join('')+
+        '</tbody></table>'+(entries.length>20?'<p style=\"color:var(--muted);font-size:11px;margin-top:4px;\">仅显示前20，共 '+entries.length+' 个产品</p>':'');
+    } else {
+      prodHtml = '<p style=\"color:var(--muted);\">该品牌本年暂无产品数据</p>';
+    }
+    var monthly = (D.brandMonthly || {})[name] || [];
+    var yms = D.yms || [];
+    dd.innerHTML = '<div class=\"cust-drilldown\"><h4 style=\"margin-bottom:12px;color:var(--blue);\">'+name+'</h4>'+
+      '<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:16px;\">'+
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📊 产品构成</h5>'+prodHtml+'</div>'+
+      '<div><h5 style=\"color:var(--muted);font-size:13px;margin-bottom:8px;\">📈 月度收入趋势（万元）</h5><div class=\"chart-box-sm\" id=\"chBrandDrillChart\"></div></div>'+
+      '</div></div>';
+    dd.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+    setTimeout(function(){
+      var ctr = document.getElementById('chBrandDrillChart');
+      if (!ctr) return;
+      chBrandDrill = echarts.init(ctr);
+      chBrandDrill.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: 50, right: 15, top: 10, bottom: 30 },
+        xAxis: { type: 'category', data: yms, axisLabel: { rotate: 45, fontSize: 9, interval: Math.floor(yms.length/6)||'auto' } },
+        yAxis: { type: 'value', name: '万元' },
+        series: [{ type: 'line', data: monthly, smooth: true, itemStyle: { color: '#5b9bd5' }, areaStyle: { color: 'rgba(91,155,213,0.1)' } }]
+      });
+    }, 50);
+  }
+
+  if (R.length > 0) { renderDrill(R); }
+  else {
+    dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
+    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+      R = rows; renderDrill(R);
+    });
+  }
+}
+
+// ================================================================
+// DETAIL TAB
+// ================================================================
+let detailFiltered = [], detailPage = 1, detailSortCol = null, detailSortAsc = true;
+const detailPageSize = 50;
+
+function initDetailTab() {
+  if (R.length === 0) {
+    fetch('/sales/api/rows/'+rid).then(r => r.json()).then(rows => {
+      R = rows;
+      initDetailFilters();
+      filterDetailTable();
+    }).catch(() => {
+      initDetailFilters();
+      filterDetailTable();
+    });
+  } else {
+    initDetailFilters();
+    filterDetailTable();
+  }
+}
+
+function initDetailFilters() {
+  const yf = document.getElementById('detailYearFilter');
+  const years = [...new Set(R.map(r => r.y))].sort();
+  yf.innerHTML = '<option value="all">全部年份</option>' + years.map(y => '<option value="'+y+'">'+y+' 年</option>').join('');
+  const df = document.getElementById('detailDeptFilter');
+  const depts = [...new Set(R.map(r => r.dept||'未知'))].filter(Boolean).sort();
+  df.innerHTML = '<option value="all">全部部门</option>' + depts.map(d => '<option value="'+d+'">'+d+'</option>').join('');
+}
+
+function filterDetailTable() {
+  const q = (document.getElementById('detailSearch').value || '').toLowerCase();
+  const yf = document.getElementById('detailYearFilter').value;
+  const df = document.getElementById('detailDeptFilter').value;
+  detailFiltered = R.filter(r => {
+    if (q && !(r.customer||'').toLowerCase().includes(q) && !(r.product||'').toLowerCase().includes(q) && !(r.sp||'').toLowerCase().includes(q)) return false;
+    if (yf !== 'all' && r.y !== parseInt(yf)) return false;
+    if (df !== 'all' && (r.dept||'未知') !== df) return false;
+    return true;
+  });
+  detailPage = 1;
+  renderDetailTable();
+}
+
+function renderDetailTable() {
+  const totalPages = Math.ceil(detailFiltered.length/detailPageSize)||1;
+  const page = detailFiltered.slice((detailPage-1)*detailPageSize, detailPage*detailPageSize);
+  document.getElementById('detailTableInfo').textContent = '共 '+detailFiltered.length+' 条，第 '+detailPage+'/'+totalPages+' 页';
+  const cols = ['ym','customer','product','cat','dept','channel','sp','qty','price','amt','cost','gp'];
+  const labels = ['年月','客户','产品','类别','部门','渠道','销售员','数量','单价','金额','成本','毛利'];
+  const thead = '<tr>'+labels.map((l,i) => '<th onclick="sortDetailTable(\''+cols[i]+'\')">'+l+'</th>').join('')+'</tr>';
+  const tbody = page.map(r => '<tr>'+cols.map(c => {
+    const v = r[c]!=null?r[c]:'';
+    if (typeof v === 'number') return '<td>'+(c==='amt'||c==='cost'||c==='gp'?v.toFixed(2):v)+'</td>';
+    return '<td>'+v+'</td>';
+  }).join('')+'</tr>').join('');
+  document.querySelector('#detailDataTable thead').innerHTML = thead;
+  document.querySelector('#detailDataTable tbody').innerHTML = tbody;
+  const pag = document.getElementById('detailPagination');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+  let html = '<button '+(detailPage===1?'disabled':'')+' onclick="detailGoPage('+(detailPage-1)+')">‹</button>';
+  for (let i=1; i<=totalPages; i++) html += '<button onclick="detailGoPage('+i+')" style="'+(i===detailPage?'background:var(--blue);color:#000;':'')+'">'+i+'</button>';
+  html += '<button '+(detailPage===totalPages?'disabled':'')+' onclick="detailGoPage('+(detailPage+1)+')">›</button>';
+  pag.innerHTML = html;
+}
+
+function sortDetailTable(col) {
+  if (detailSortCol === col) detailSortAsc = !detailSortAsc;
+  else { detailSortCol = col; detailSortAsc = true; }
+  detailFiltered.sort((a,b) => {
+    const va = a[col]!=null?a[col]:'', vb = b[col]!=null?b[col]:'';
+    if (typeof va === 'number') return detailSortAsc ? va-vb : vb-va;
+    return detailSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+  detailPage = 1;
+  renderDetailTable();
+}
+
+function detailGoPage(p) { detailPage = p; renderDetailTable(); }
+
+function exportDetailCSV() {
+  const rows = detailFiltered.length ? detailFiltered : R;
+  if (!rows.length) return;
+  const cols = ['ym','customer','product','cat','dept','channel','sp','qty','price','amt','cost','gp'];
+  const labels = ['年月','客户','产品','类别','部门','渠道','销售员','数量','单价','金额','成本','毛利'];
+  let csv = labels.join(',') + '\\n';
+  rows.forEach(r => { csv += cols.map(c => { const v = r[c]!=null?r[c]:''; return typeof v==='string'&&v.includes(',')?'"'+v+'"':v; }).join(',') + '\\n'; });
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='销售明细.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- Init ----
+async function loadRows() {
+  if(__exportMode && __embeddedRows){ return __embeddedRows; }
+  const resp = await fetch(`/sales/api/rows/${rid}`);
+  R = await resp.json();
+  filteredR = [...R];
+  renderTable();
+}
+// Detail data loads on-demand via detail tab (initDetailTab)
+
+// ---- KPI Cards ----
+function renderKPI(yr) {
+  var ks = (yr && D.kpiByYear && D.kpiByYear[String(yr)]) ? D.kpiByYear[String(yr)] : D.kpi;
+  var cl=['#fff','var(--red)','var(--orange)','var(--green)'];
+  var items = [
+    {l:'当期收入', c:ks.revenue, p:ks.revenue_prev, yoy:ks.revenue_yoy, d:10000, u:' 万'},
+    {l:'毛利率', c:ks.gp_margin, p:ks.gp_margin_prev, d:1, u:'%', isPct:true},
+    {l:'毛利额', c:ks.gross_profit, p:ks.gross_profit_prev, d:10000, u:' 万'},
+    {l:'成交客户', c:ks.customers, p:ks.customers_prev, d:1, u:' 个', isInt:true},
+  ];
+  var h='';
+  items.forEach(function(it,i){
+    var cv=it.isInt?(it.c||0):it.isPct?(it.c||0).toFixed(1):((it.c||0)/it.d).toFixed(0);
+    var pv=it.isInt?(it.p||0):it.isPct?(it.p||0).toFixed(1):((it.p||0)/it.d).toFixed(0);
+    var diff=it.c-it.p;
+    var yoyPct=it.yoy!=null?it.yoy:(it.p>0?((it.c/it.p-1)*100):null);
+    var yoyStr='',yoyCls='';
+    if(yoyPct!=null&&isFinite(yoyPct)){
+      if(it.isPct){yoyCls=diff>0?'up':'dn';yoyStr='同比 '+(diff>0?'+':'')+diff.toFixed(1)+'pp';}
+      else{yoyCls=yoyPct>0?'up':'dn';yoyStr='同比 '+(yoyPct>0?'+':'')+yoyPct.toFixed(1)+'%';}
+      if(!it.isPct){var diffVal=((it.c-it.p)/it.d).toFixed(0);yoyStr+='（差额 <b>'+(diff>0?'+':'')+diffVal+' '+it.u.trim()+'</b>）';}
+    }
+    h+='<div class="kpi-c"><div class="lbl" style="color:'+cl[i]+'">'+it.l+'</div>';
+    h+='<div class="val">'+cv+'<span class="un">'+it.u+'</span></div>';
+    h+='<div class="row2">较去年同期 <b>'+pv+it.u.trim()+'</b>';
+    if(yoyStr)h+='<br><span class="'+yoyCls+'">'+yoyStr+'</span>';
+    h+='</div></div>';
+  });
+  document.getElementById('kpiRow').innerHTML=h;
+}
+function populateYearFilter() {
+  const sel = document.getElementById('yearFilter');
+  sel.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===D.cy?'selected':''}>${y} 年</option>`).join('');
+  sel.onchange = function(){ renderKPI(parseInt(this.value)); renderYearly(); renderSunbursts(); };
+}
+
+// ---- Charts ----
+let chYearly, chMonthly, chSunburstCust, chSunburstProd, chCustRevenue;
+function initCharts() {
+  chYearly = echarts.init(document.getElementById('chYearly'));
+  chMonthly = echarts.init(document.getElementById('chMonthly'));
+  chSunburstCust = echarts.init(document.getElementById('chSunburstCust'));
+  chSunburstProd = echarts.init(document.getElementById('chSunburstProd'));
+  
+  window.addEventListener('resize', () => { chYearly.resize(); chMonthly.resize(); chSunburstCust.resize(); chSunburstProd.resize(); });
+}
+
+function renderYearly() {
+  var depts = D.departments || [];
+  var dr = D.deptRevenue || {};
+  var years = (D.years||[]).map(function(y){return y+'年'});
+  var colors = ['#5b9bd5','#4caf84','#ffa726','#ab68d8','#ff5252'];
+  var series = depts.map(function(d,i){ return {
+    name:d.name, type:'bar', stack:'total', data:dr[d.name]||[],
+    itemStyle:{color:colors[i%5]}, emphasis:{focus:'series'},
+    label:{show:true,position:'inside',fontSize:9,color:'#fff',formatter:function(p){
+      var arr2=dr[p.seriesName]||[]; var yi2=p.dataIndex;
+      if(yi2===0||yi2>=arr2.length)return'';
+      var prev2=arr2[yi2-1],curr2=arr2[yi2];
+      if(!prev2||prev2===0)return'';
+      var yoy2=((curr2-prev2)/prev2*100).toFixed(0);
+      return yoy2>0?'+'+yoy2+'%':yoy2+'%';
+    }}
+  };});
+  var totals = years.map(function(_,i){ return depts.reduce(function(s,d){return s+((dr[d.name]||[])[i]||0)},0); });
+  series.push({name:'合计',type:'line',data:totals,symbol:'none',
+    lineStyle:{color:'#fff',type:'dashed',width:1},
+    label:{show:true,position:'top',fontSize:10,color:'#fff',formatter:function(p){return p.value.toFixed(0)}}
+  });
+  chYearly.setOption({
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    legend:{data:depts.map(function(d){return d.name}),bottom:0,textStyle:{color:'#a0a8c0',fontSize:10}},
+    grid:{left:60,right:20,top:40,bottom:70},
+    xAxis:{type:'category',data:years},
+    yAxis:{type:'value',name:'万元'},
+    series:series
+  });
+}
+
+function renderMonthly() {
+  const total = (D.yms||[]).length;
+  const count = monthWindow === 'all' ? total : Math.min(monthWindow, total);
+  const yms = (D.yms||[]).slice(-count);
+  const revenue = (D.moRevenue||[]).slice(-count);
+  const grossProfit = (D.moGrossProfit||[]).slice(-count);
+
+  // Build anomaly mark points from MoM anomalies
+  const anomalySet = new Set((D.momAnom||[]).map(a => a.ym));
+  const markData = [];
+  yms.forEach((ym, i) => {
+    if (anomalySet.has(ym)) {
+      markData.push({name: ym, coord: [i, revenue[i]], value: '⚠', symbol: 'triangle', symbolSize: 14, itemStyle: {color: '#ffa726'}});
+    }
+  });
+
+  const showDataZoom = monthWindow === 'all' && total > 24;
+  const startPct = total > 0 ? Math.max(0, ((total - 24) / total) * 100) : 0;
+
+  chMonthly.setOption({
+    tooltip: {trigger: 'axis'},
+    legend: {data: ['收入', '毛利'], bottom: 0, textStyle: {color: '#94a3b8', fontSize: 11}},
+    grid: {left: 60, right: 20, top: 40, bottom: showDataZoom ? 80 : 50},
+    xAxis: {type: 'category', data: yms, axisLabel: {rotate: 45, fontSize: 10, interval: count > 24 ? Math.floor(count / 12) - 1 : 'auto'}},
+    yAxis: {type: 'value', name: '万元'},
+    dataZoom: showDataZoom ? [{type: 'slider', start: startPct, end: 100, height: 20, bottom: 40}] : [],
+    series: [
+      {
+        name: '收入', type: 'line', data: revenue, smooth: true,
+        itemStyle: {color: '#5b9bd5'}, areaStyle: {color: 'rgba(91,155,213,.1)'},
+        markPoint: markData.length > 0 ? {data: markData, label: {fontSize: 10, color: '#fff'}} : undefined
+      },
+      {
+        name: '毛利', type: 'line', data: grossProfit, smooth: true,
+        itemStyle: {color: '#4caf84'}, lineStyle: {type: 'dashed'}
+      }
+    ]
+  });
+
+  // Update toggle button active state
+  document.querySelectorAll('.mw-btn').forEach(btn => {
+    btn.classList.toggle('active', String(monthWindow) === btn.dataset.w);
+  });
+}
+
+function renderSunbursts() {
+  var selY = parseInt(document.getElementById('yearFilter').value) || D.cy;
+  document.getElementById('sunCustTitle').textContent = '客户收入占比（'+selY+'年）';
+  document.getElementById('sunProdTitle').textContent = '产品收入占比（'+selY+'年）';
+  var selY2 = parseInt(document.getElementById("yearFilter").value) || D.cy;
+  var hm = (D.custProdHMByYear||{})[selY2] || D.custProdHM || {};
+  var cpData = Object.entries(hm).slice(0,12).map(function(e){ return {
+    name:e[0], children:Object.entries(e[1]).sort(function(a,b){return b[1]-a[1]}).map(function(p){ return {name:p[0],value:Math.round(p[1]/10000*10)/10}; })
+  };});
+  chSunburstCust.setOption({
+    tooltip:{trigger:'item',formatter:function(p){return p.name+': '+(p.value||0)+' 万'}},
+    series:[{type:'sunburst',data:cpData,radius:[0,'90%'],label:{rotate:'radial',fontSize:9},itemStyle:{borderRadius:3,borderWidth:1}}]
+  });
+  var pcMap = {};
+  Object.entries(hm).forEach(function(e){ var cust=e[0],prods=e[1];
+    Object.entries(prods).forEach(function(p){ var prod=p[0],amt=p[1];
+      if(!pcMap[prod]) pcMap[prod]={}; pcMap[prod][cust]=amt;
+    });
+  });
+  var pcData = Object.entries(pcMap).slice(0,12).map(function(e){ return {
+    name:e[0], children:Object.entries(e[1]).sort(function(a,b){return b[1]-a[1]}).map(function(c){ return {name:c[0],value:Math.round(c[1]/10000*10)/10}; })
+  };});
+  chSunburstProd.setOption({
+    tooltip:{trigger:'item',formatter:function(p){return p.name+': '+(p.value||0)+' 万'}},
+    series:[{type:'sunburst',data:pcData,radius:[0,'90%'],label:{rotate:'radial',fontSize:9},itemStyle:{borderRadius:3,borderWidth:1}}]
+  });
+}
+
+function renderCustRevenue() {
+  var tf = document.getElementById('treemapYearFilter');
+  if (!tf.options.length) {
+    tf.innerHTML = (D.years||[]).map(function(y){return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>';}).join('');
+    var df2=document.getElementById('treemapDeptFilter');
+    df2.innerHTML='<option value="all">全部部门</option>'+(D.departments||[]).map(function(d){return '<option value="'+d.name+'">'+d.name+'</option>';}).join('');
+  }
+  renderTreemap();
+}
+var _chTreemap;
+function renderTreemap() {
+  var el = document.getElementById('chTreemap');
+  if (!el) return;
+  if (!_chTreemap) _chTreemap = echarts.init(el);
+  var deptFilter = document.getElementById('treemapDeptFilter').value;
+  var dcr = D.deptCustRevenue || {};
+  var cr = (deptFilter==='all') ? (D.custRevenue||{}) : (dcr[deptFilter]||{});
+  var selY = parseInt(document.getElementById('treemapYearFilter').value) || D.cy;
+  document.getElementById('treemapTitle').textContent = '客户收入树状图（'+selY+'年）';
+  var yi = (D.years||[]).indexOf(selY);
+  var data = Object.entries(cr).map(function(e){ return {name:e[0], value:e[1][yi]||0}; }).filter(function(d){return d.value>0}).sort(function(a,b){return b.value-a.value});
+  _chTreemap.setOption({
+    tooltip:{formatter:function(p){return '<b>'+p.name+'</b><br/>'+p.value.toFixed(1)+' 万'}},
+    series:[{type:'treemap',data:data,roam:false,width:'100%',height:'100%',
+      label:{show:true,formatter:function(p){return p.name+'\n'+p.value.toFixed(0)+' 万'},fontSize:11,position:'insideTopLeft',distance:5},
+      upperLabel:{show:true,height:25},
+      itemStyle:{borderColor:'#0b0b18',borderWidth:3,gapWidth:2}
+    }]
+  });
+}
+function renderCustLifecycle() {
+  // Use D data directly — same source as sankey and KPI cards
+  var newC = D.newCustomers || [];
+  var dormC = D.churnRisk || [];
+  var lostC = D.lostCustomers || [];
+
+  function renderTable(data, showRevenue) {
+    if (data.length===0) return '<tr><td colspan="3" style="color:var(--muted);">无</td></tr>';
+    return data.map(function(c){
+      var rev = showRevenue ? (c.revenue!=null ? c.revenue.toFixed(1) : '0.0') : (c.last_amt!=null ? c.last_amt.toFixed(1) : '0.0');
+      return '<tr><td>'+c.name+'</td><td>'+rev+'</td><td>'+(c.last_ym||'')+'</td></tr>';
+    }).join('');
+  }
+
+  var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">';
+  html += '<div><h4 style="color:var(--green);font-size:13px;margin-bottom:8px;">🆕 新增客户（'+newC.length+'）</h4>';
+  html += '<div style="max-height:250px;overflow-y:auto;"><table style="font-size:12px;width:100%;"><thead><tr><th>客户</th><th>收入(万)</th><th>最后交易</th></tr></thead><tbody>';
+  html += renderTable(newC, true) + '</tbody></table></div></div>';
+  html += '<div><h4 style="color:var(--orange);font-size:13px;margin-bottom:8px;">💤 沉睡客户（'+dormC.length+'）</h4>';
+  html += '<div style="max-height:250px;overflow-y:auto;"><table style="font-size:12px;width:100%;"><thead><tr><th>客户</th><th>金额(万)</th><th>最后交易</th></tr></thead><tbody>';
+  html += renderTable(dormC, false) + '</tbody></table></div></div>';
+  html += '<div><h4 style="color:var(--red);font-size:13px;margin-bottom:8px;">📉 流失客户（'+lostC.length+'）</h4>';
+  html += '<div style="max-height:250px;overflow-y:auto;"><table style="font-size:12px;width:100%;"><thead><tr><th>客户</th><th>累计收入(万)</th><th>最后交易</th></tr></thead><tbody>';
+  html += renderTable(lostC, true) + '</tbody></table></div></div>';
+  html += '</div>';
+  document.getElementById('custLifecycle').innerHTML = html;
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  filteredR = q ? R.filter(r => (r.customer||'').toLowerCase().includes(q) || (r.product||'').toLowerCase().includes(q)) : [...R];
+  currentPage = 1;
+  renderTable();
+}
+
+function sortTable(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+  filteredR.sort((a,b) => {
+    const va = a[col]!=null?a[col]:'', vb = b[col]!=null?b[col]:'';
+    if (typeof va === 'number') return sortAsc ? va-vb : vb-va;
+    return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+  currentPage = 1;
+  renderTable();
+}
+
+function renderTable() {
+  const totalPages = Math.ceil(filteredR.length/pageSize)||1;
+  const page = filteredR.slice((currentPage-1)*pageSize, currentPage*pageSize);
+
+  document.getElementById('tableInfo').textContent = `共 ${filteredR.length} 条，第 ${currentPage}/${totalPages} 页`;
+
+  const cols = ['ym','customer','product','cat','region','channel','qty','price','amt','cost','gp','order'];
+  const labels = ['年月','客户','产品','类别','区域','渠道','数量','单价','金额','成本','毛利','订单号'];
+  const thead = `<tr>${labels.map((l,i) => `<th onclick="sortTable('${cols[i]}')">${l} ${sortCol===cols[i]?(sortAsc?'▲':'▼'):''}</th>`).join('')}</tr>`;
+  const tbody = page.map(r => `<tr>${cols.map(c => {
+    const v = r[c]!=null?r[c]:'';
+    if (typeof v === 'number') return `<td>${c==='amt'||c==='cost'||c==='gp'?v.toFixed(2):v}</td>`;
+    return `<td>${v}</td>`;
+  }).join('')}</tr>`).join('');
+
+  document.querySelector('#dataTable thead').innerHTML = thead;
+  document.querySelector('#dataTable tbody').innerHTML = tbody;
+
+  // Pagination
+  const pag = document.getElementById('pagination');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+  let html = `<button ${currentPage===1?'disabled':''} onclick="goPage(${currentPage-1})">‹</button>`;
+  for (let i=1; i<=totalPages; i++) {
+    html += `<button onclick="goPage(${i})" style="${i===currentPage?'background:var(--blue);color:#000;':''}">${i}</button>`;
+  }
+  html += `<button ${currentPage===totalPages?'disabled':''} onclick="goPage(${currentPage+1})">›</button>`;
+  pag.innerHTML = html;
+}
+
+function goPage(p) { currentPage = p; renderTable(); }
+
+function exportCSV() {
+  const rows = filteredR.length ? filteredR : R;
+  if (!rows.length) return;
+  const cols = ['ym','customer','product','cat','region','channel','qty','price','amt','cost','gp','order'];
+  const labels = ['年月','客户','产品','类别','区域','渠道','数量','单价','金额','成本','毛利','订单号'];
+  let csv = labels.join(',') + '\n';
+  rows.forEach(r => { csv += cols.map(c => { const v = r[c]!=null?r[c]:''; return typeof v==='string'&&v.includes(',')?`"${v}"`:v; }).join(',') + '\n'; });
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='销售分析明细.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- Init ----
+// Month-window toggle
+(function initMwToggle() {
+  const total = (D.yms||[]).length;
+  const toggle = document.getElementById('mwToggle');
+  if (total >= 12) {
+    toggle.style.display = 'flex';
+    toggle.querySelectorAll('.mw-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        monthWindow = this.dataset.w === 'all' ? 'all' : parseInt(this.dataset.w);
+        renderMonthly();
+      });
+    });
+  }
+})();
+
+var __embeddedRows = null;
+var __exportMode = false;
+renderKPI(D.cy);
+populateYearFilter();
+initCharts();
+renderYearly();
+renderMonthly();
+renderSunbursts();
+document.getElementById('diagBox').innerHTML = D.diagHTML || '';
+
+
+// ---- Sankey Click to Show Customer Detail ----
+function showSankeyDetail(source, target) {
+  var detailDiv = document.getElementById('sankeyDetail');
+  var titleEl = document.getElementById('sankeyDetailTitle');
+  var tableEl = document.getElementById('sankeyDetailTable');
+  if (!detailDiv) return;
+
+  function renderWithRows(rows) {
+    var prevYr = D.cy - 1;
+    var yms = D.yms || [];
+    var recent3Set = new Set(yms.slice(-3));
+    var recent6Set = new Set(yms.slice(-6));
+
+    // Compute per-customer from rows
+    // Match sankey scope: only top customers (from D.customers)
+    var topCustNames = new Set((D.customers||[]).slice(0,30).map(function(x){return x.name}));
+    var allCusts = [...new Set(rows.map(function(r){return r.customer}))].filter(function(c){return topCustNames.has(c)});
+    var custMap = {};
+    allCusts.forEach(function(c) {
+      var cRows = rows.filter(function(r){return r.customer===c});
+      var cyms = cRows.map(function(r){return r.ym});
+      var cymSet = new Set(cyms);
+      var inPrev = cRows.some(function(r){return r.year===prevYr});
+      var inRecent3 = cyms.some(function(ym){return recent3Set.has(ym)});
+      var inRecent6 = cyms.some(function(ym){return recent6Set.has(ym)});
+      var rev = cRows.reduce(function(s,r){return s+(r.amt||0)},0);
+      var lastYm = cyms.sort().pop() || '-';
+      custMap[c] = {inPrev:inPrev, inRecent3:inRecent3, inRecent6:inRecent6, revenue:rev, lastYm:lastYm};
+    });
+
+    var matched = [];
+    Object.entries(custMap).forEach(function(e) {
+      var c = e[0], info = e[1];
+      var ok = false;
+      if (source==='上年活跃' && target==='当年活跃' && info.inPrev && info.inRecent3) ok=true;
+      else if (source==='上年活跃' && target==='当年沉睡' && info.inPrev && info.inRecent6 && !info.inRecent3) ok=true;
+      else if (source==='上年活跃' && target==='当年流失' && info.inPrev && !info.inRecent6) ok=true;
+      else if (source==='当年新增' && target==='当年活跃' && !info.inPrev && info.inRecent3) ok=true;
+      if (ok) matched.push({name:c, revenue:info.revenue, lastYm:info.lastYm});
+    });
+    matched.sort(function(a,b){return b.revenue - a.revenue});
+
+    titleEl.textContent = source + ' -> ' + target + ' (' + matched.length + ' customers)';
+    var labels = ['Customer', 'Revenue(Yuan)', 'Last Transaction'];
+    var thead = '<tr>' + labels.map(function(l){return '<th>'+l+'</th>'}).join('') + '</tr>';
+    var tbody = matched.map(function(m){
+      return '<tr><td>'+m.name+'</td><td>'+m.revenue.toLocaleString()+'</td><td>'+m.lastYm+'</td></tr>';
+    }).join('');
+    tableEl.innerHTML = thead + '<tbody>' + tbody + '</tbody>';
+    detailDiv.style.display = 'block';
+    detailDiv.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+
+  function loadAndRender() {
+    fetch('/sales/api/rows/'+rid).then(function(r){return r.json()}).then(function(rows){
+      R = rows; renderWithRows(R);
+    }).catch(function(){
+      titleEl.textContent = 'Failed to load detail data. Please open the Detail tab first.';
+      detailDiv.style.display = 'block';
+    });
+  }
+
+  if (R.length > 0) {
+    renderWithRows(R);
+  } else {
+    loadAndRender();
+  }
+}
+
+
+
+// ---- Customer Ranking Change Table ----
+function renderRankChange() {
+  var tableEl = document.getElementById('rankChangeTable');
+  if (!tableEl) return;
+
+  function build(rows) {
+    var cy = D.cy, py = cy - 1;
+    function rankYear(y) {
+      var map = {};
+      rows.forEach(function(r) {
+        if ((r.y||r.year) !== y) return;
+        var c = r.customer || '';
+        map[c] = (map[c]||0) + (r.amt||0);
+      });
+      var sorted = Object.entries(map).sort(function(a,b){ return b[1]-a[1]; });
+      var rankMap = {};
+      sorted.forEach(function(e, i) { rankMap[e[0]] = {rank: i+1, rev: Math.round(e[1]/1000)/10}; });
+      return rankMap;
+    }
+    var cyRank = rankYear(cy), pyRank = rankYear(py);
+    var all = Object.keys(cyRank).sort(function(a,b){ return cyRank[a].rank - cyRank[b].rank; }).slice(0, 20);
+    all.forEach(function(c) { if (!pyRank[c]) pyRank[c] = {rank: null, rev: 0}; });
+
+    var data = all.map(function(c) {
+      var cr = cyRank[c], pr = pyRank[c];
+      var change = (pr.rank && cr.rank) ? pr.rank - cr.rank : null;
+      return { name:c, cyRank:cr.rank, pyRank:pr.rank, change:change, cyRev:cr.rev, pyRev:pr.rev };
+    });
+    data.sort(function(a,b) { return (b.change!=null?b.change:-999) - (a.change!=null?a.change:-999); });
+
+    var labels = ['客户', '去年排名', '今年排名', '变化', '去年收入(万)', '今年收入(万)'];
+    var thead = '<tr>' + labels.map(function(l){ return '<th>'+l+'</th>'; }).join('') + '</tr>';
+    var tbody = data.map(function(d) {
+      var changeStr = d.change!=null ? (d.change>0 ? '▲ +'+d.change : d.change<0 ? '▼ '+d.change : '─ 0') : '新入榜';
+      var color = d.change>0 ? 'var(--red)' : d.change<0 ? 'var(--green)' : 'var(--muted)';
+      return '<tr><td><b>' + d.name + '</b></td>' +
+        '<td>' + (d.pyRank||'新') + '</td><td>' + d.cyRank + '</td>' +
+        '<td style="color:' + color + ';font-weight:600;">' + changeStr + '</td>' +
+        '<td>' + (d.pyRev||0).toFixed(1) + '</td><td>' + d.cyRev.toFixed(1) + '</td></tr>';
+    }).join('');
+    tableEl.innerHTML = thead + '<tbody>' + tbody + '</tbody>';
+  }
+
+  if (R.length > 0) {
+    build(R);
+  } else {
+    fetch('/sales/api/rows/'+rid).then(function(r){ return r.json(); }).then(function(rows){
+      R = rows; build(R);
+    });
+  }
+}
+
+
+// ---- Product Lifecycle ----
+function renderProdLifecycle() {
+  var el = document.getElementById('prodLifecycle');
+  if (!el) return;
+  function build(rows) {
+    var cy = D.cy, py = cy - 1;
+    var cyProds = new Set(), pyProds = new Set();
+    var prodRev = {};
+    rows.forEach(function(r) {
+      var p = r.product || '';
+      if ((r.y||r.year) === cy) { cyProds.add(p); prodRev[p] = (prodRev[p]||0) + (r.amt||0); }
+      if ((r.y||r.year) === py) pyProds.add(p);
+    });
+    var newProds = [], discProds = [];
+    var discProdRev = {};
+    rows.forEach(function(r) {
+      var p = r.product || '';
+      if ((r.y||r.year) === py) discProdRev[p] = (discProdRev[p]||0) + (r.amt||0);
+    });
+    cyProds.forEach(function(p) { if (!pyProds.has(p)) newProds.push({name:p, rev:Math.round((prodRev[p]||0)/1000)/10}); });
+    pyProds.forEach(function(p) { if (!cyProds.has(p)) discProds.push({name:p, rev:Math.round((discProdRev[p]||0)/1000)/10}); });
+    newProds.sort(function(a,b){ return b.rev-a.rev; });
+    discProds.sort(function(a,b){ return b.rev-a.rev; });
+
+    var h = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;min-width:0;overflow:hidden;">';
+    h += '<div style="min-width:0;overflow:hidden;"><h4 style="color:var(--green);font-size:13px;margin-bottom:6px;">🆕 新增产品（'+newProds.length+'）</h4>';
+    h += '<div style="max-height:320px;overflow-y:auto;"><table style="font-size:12px;width:100%;table-layout:fixed;"><thead><tr><th style="width:65%;">产品</th><th style="width:35%;">收入(万)</th></tr></thead><tbody>';
+    h += newProds.map(function(p){ return '<tr><td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.name+'">'+p.name+'</td><td>'+p.rev.toFixed(1)+'</td></tr>'; }).join('') || '<tr><td colspan="2" style="color:var(--muted);">无</td></tr>';
+    h += '</tbody></table></div></div>';
+    h += '<div style="min-width:0;overflow:hidden;"><h4 style="color:var(--red);font-size:13px;margin-bottom:6px;">📉 淘汰产品（'+discProds.length+'）</h4>';
+    h += '<div style="max-height:320px;overflow-y:auto;"><table style="font-size:12px;width:100%;table-layout:fixed;"><thead><tr><th style="width:65%;">产品</th><th style="width:35%;">去年收入(万)</th></tr></thead><tbody>';
+    h += discProds.map(function(p){ return '<tr><td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.name+'">'+p.name+'</td><td>'+p.rev.toFixed(1)+'</td></tr>'; }).join('') || '<tr><td colspan="2" style="color:var(--muted);">无</td></tr>';
+    h += '</tbody></table></div></div>';
+    h += '</div>';
+    el.innerHTML = h;
+  }
+  if (R.length>0) { build(R); }
+  else { fetch('/sales/api/rows/'+rid).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
+}
+
+// main() closes here
+}
+
+// Export functions
+async function doExport(fmt){
+  var report = await loadReport();
+  if(report) await exportReport(fmt, report);
+}
+async function doSave(){
+  var report = await loadReport();
+  if(!report) return;
+  try {
+    var resp = await fetch('/api/reports/save', {
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
+      body: JSON.stringify({DATA:report.DATA, detailRows:report.detailRows, reportType:'sales', fileNames:report.fileNames, id:report.id}),
+    });
+    var json = await resp.json();
+    alert(json.ok ? '已保存到云端' : '保存失败: '+json.error);
+  } catch(e) { alert('保存失败: '+e.message); }
+}
+async function doClear(){
+  if(confirm('确定清除当前报告数据？')){ await clearReport(); window.location.href='index.html'; }
+}
+
+// Also replace the fetch for sales rows with a local fallback
+var _origFetchRows = function(){
+  // R already loaded from IndexedDB, no server fetch needed
+};
+
+</script>
+</body>
+</html>

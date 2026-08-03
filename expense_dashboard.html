@@ -268,6 +268,7 @@ var D = {}, R = [], REPORT_ID = '', __exportMode = false;
 })();
 
 function main(){
+console.log('[费用看板] 开始渲染, D keys='+(D?Object.keys(D).length:0)+' rows='+R.length);
 var tp=1,PS=20,sk='amt',sd=-1;
 var fs=[],ci={},echReady=false;
 var mA_diff=false,mA_unit='w';
@@ -280,9 +281,10 @@ function or0(v){return v||0}
 // ---- ECharts loader ----
 function ldE(cb){
   if(typeof echarts!=='undefined'){echReady=true;cb();return}
+  console.warn('[费用看板] ECharts 未加载，尝试 CDN...');
   var s=document.createElement('script');
   s.src='https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js';
-  s.onload=function(){echReady=true;cb()};
+  s.onload=function(){echReady=true;cb();console.log('[费用看板] ECharts CDN OK');};
   s.onerror=function(){console.warn('ECharts CDN failed');cb()};
   document.head.appendChild(s);
 }
@@ -290,6 +292,7 @@ function initCh(el){var d=document.getElementById(el);if(!d)return null;d.innerH
 
 // ---- INIT (runs immediately for KPI, charts load async) ----
 function popF(){
+try{
   var yf=document.getElementById('yf');
   D.years.forEach(function(y){yf.appendChild(new Option(y+'年',y))});
   yf.value=D.cy;
@@ -332,6 +335,7 @@ function popF(){
   });
   setMACompare('mom');
   setMA2Compare('mom');
+}catch(e){console.error('[费用看板] popF 失败:',e.message);}
 }
 
 // ---- KPI ----
@@ -747,43 +751,10 @@ function expCSV(){
   var csv='﻿年,月,科目,部门,核算项目,摘要,金额\n';rows.forEach(function(r){csv+=r.y+','+r.m+','+r.sn+','+r.did+','+r.cat+',"'+r.summ.replace(/"/g,'""')+'",'+r.amt+'\n'});var b=new Blob([csv],{type:'text/csv;charset=utf-8;'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='费用明细导出.csv';a.click();URL.revokeObjectURL(a.href);
 }
 
-// ---- DIAGNOSTICS ----
-document.getElementById('diag').innerHTML = D.diagHTML || '<p style="color:var(--muted)">诊断数据未加载</p>';
+} // close main()
 
-// ---- MAIN ----
-function main(){
-  console.log('[费用看板] 数据就绪: '+R.length+' 行, D keys='+Object.keys(D).length);
-  var overlay = document.getElementById('loadOverlay');
-  document.getElementById('loadSub').textContent = R.length + ' 条费用记录加载中';
-  // Show overlay during init
-  overlay.classList.remove('done');
-
-  try {
-    popF();
-    rK();
-    ldE(function(){
-      try { rC1(); rC2(D.cy); rC3(); rC4(D.cy); rC4b(D.cy); } catch(e) { console.error('图表错误:', e); }
-    });
-    try { setMAUnit('w'); rMA(); } catch(e) { console.error('MA:', e); }
-    try { setMA2Unit('w'); rMA2(); } catch(e) { console.error('MA2:', e); }
-    setTimeout(function(){
-      try { buildExpenseTable(); } catch(e) { console.error('Table:', e); }
-      // All done — hide overlay
-      overlay.classList.add('done');
-    }, 200);
-  } catch(e) {
-    console.error('[费用看板] 初始化失败:', e.message);
-    overlay.innerHTML = '<div style=\"color:var(--red);text-align:center;padding:40px\"><p style=\"font-size:18px\">❌ 初始化失败</p><p style=\"font-size:14px;color:var(--muted)\">'+e.message+'</p><p style=\"margin-top:16px\"><a href=\"index.html\" style=\"color:var(--blue)\">← 返回重新上传</a></p></div>';
-  }
-
-  // Resize handler
-  window.addEventListener('resize',function(){
-        for(var k in ci)if(ci[k]&&ci[k].resize)ci[k].resize();
-      });
-}
-
-// main() closes here
-}
+// Move diagnostics inside main flow
+setTimeout(function(){ document.getElementById('diag').innerHTML = D.diagHTML || '<p style=\"color:var(--muted)\">诊断数据未加载</p>'; }, 500);
 
 // Export functions
 async function doExport(fmt){

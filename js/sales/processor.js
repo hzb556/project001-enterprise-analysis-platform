@@ -653,28 +653,10 @@ async function salesProcessExcelFiles(fileList, columnMapping) {
     const ext = file.name.split('.').pop().toLowerCase();
     let rawRows, headers;
 
-    if (ext === 'xls') {
-      const result = await readExcelFile(file);
-      headers = result.headers;
-      rawRows = result.rows;
-    } else {
-      try {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        rawRows = XLSX.utils.sheet_to_json(sheet);
-        headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
-      } catch (e) {
-        if (e.message && (e.message.includes('allocation') || e.message.includes('memory'))) {
-          console.warn('[销售分析] SheetJS OOM，降级 calamine:', file.name);
-          const result = await readExcelFile(file);
-          headers = result.headers;
-          rawRows = result.rows;
-        } else {
-          throw e;
-        }
-      }
-    }
+    // 统一使用 calamine WASM 读取
+    const result = await readExcelFile(file);
+    headers = result.headers;
+    rawRows = result.rows;
 
     if (fi === 0) {
       detectResult = columnMapping

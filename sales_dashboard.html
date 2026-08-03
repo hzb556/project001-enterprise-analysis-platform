@@ -9,6 +9,8 @@
 <script src="js/vendor/tabulator.min.js"></script>
 <script src="js/shared/tabulator-builder.js"></script>
 <link href="css/variables.css" rel="stylesheet">
+<script src="js/shared/storage.js"></script>
+<script src="js/shared/export.js"></script>
 <style>
 body{min-height:100vh}
 .main { max-width:1400px; margin:0 auto; padding:20px 24px; }
@@ -60,12 +62,12 @@ tr:hover td { background:#1e1e40; }
 </style>
 </head>
 <body>
-<div class="topbar" style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--border);margin-bottom:18px">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--border)">
   <span style="font-weight:700;color:#fff">📈 销售分析报告</span>
   <div style="display:flex;gap:8px;align-items:center">
-    <span id="topReportName" style="font-size:10px;color:var(--muted)"></span>
+    <span id="topName" style="font-size:10px;color:var(--muted)"></span>
     <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:5px">← 返回</a>
-    <a href="#" onclick="doExport('html')" style="color:var(--green);border-color:var(--green);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--green);border-radius:5px">📥 导出</a>
+    <a href="#" onclick="doExport('html')" style="color:var(--green);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--green);border-radius:5px">📥 导出</a>
     <a href="#" onclick="doExport('excel')" style="color:#4caf84;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #4caf84;border-radius:5px">📥 Excel</a>
     <a href="#" onclick="doSave()" style="color:#a855f7;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #a855f7;border-radius:5px">☁ 保存</a>
     <button onclick="doClear()" style="background:transparent;color:var(--red);border:1px solid #ff525240;border-radius:5px;cursor:pointer;font-size:11px;padding:4px 10px">🗑 清除</button>
@@ -90,7 +92,7 @@ tr:hover td { background:#1e1e40; }
   <div class="controls-row">
     <select id="yearFilter"></select>
 
-    <span style="color:var(--muted);font-size:12px;">报告: <span id="lblReportId"></span></span>
+    <span style="color:var(--muted);font-size:12px;">报告: <span id="lblId"></span></span>
   </div>
 
   <!-- KPI Cards -->
@@ -314,29 +316,17 @@ tr:hover td { background:#1e1e40; }
 </div>
 
 <script>
-<script src="js/shared/storage.js"></script>
-<script src="js/shared/export.js"></script>
-<script>
-var D = {}, rid = '', R = [];
+var D = {}, rid = '';
+var __R = [];
 (async function init(){
-  try {
-    var report = await loadReport();
-    if (!report || !report.DATA) {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">没有报告数据</h1><p style="color:var(--muted)">请先上传文件进行分析</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回上传页面</a></div>';
-      return;
-    }
-    D = report.DATA;
-    R = report.detailRows || [];
-    rid = report.id || '';
-    document.getElementById('lblReportId').textContent = rid;
-    document.getElementById('topReportName').textContent = (report.fileNames||['-']).join(', ');
-    main();
-  } catch(e) {
-    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">加载失败</h1><p>'+e.message+'</p></div>';
+  var r = await loadReport();
+  if (r && r.DATA) {
+    D = r.DATA; __R = r.detailRows||[]; rid = r.id||'';
+    document.getElementById('lblId').textContent = rid;
+    document.getElementById('topName').textContent = (r.fileNames||['-']).join(', ');
   }
+  main();
 })();
-
-function main(){
 let R = [];
 let filteredR = [];
 let currentPage = 1;
@@ -632,7 +622,7 @@ var prodMap = {};
     renderDrilldown(renderProdMix(R));
   } else {
     dd.innerHTML = '<div class="cust-drilldown"><p style="color:var(--muted);">正在加载明细数据...</p></div>';
-    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrilldown(renderProdMix(R));
     }).catch(function(){
       dd.innerHTML = '<div class="cust-drilldown"><p style="color:var(--red);">加载失败，请先切换到明细页签</p></div>';
@@ -756,7 +746,7 @@ function renderProdRankChange() {
     tableEl.innerHTML = thead+'<tbody>'+tbody+'</tbody>';
   }
   if (R.length>0) { build(R); }
-  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
 }
 
 function initProdTab() {
@@ -919,7 +909,7 @@ function toggleProdDrill(name, el) {
   if (R.length > 0) { renderDrill(R); }
   else {
     dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
-    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrill(R);
     });
   }
@@ -1154,7 +1144,7 @@ function toggleCatDrill(name, el) {
   if (R.length > 0) { renderDrill(R); }
   else {
     dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
-    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrill(R);
     });
   }
@@ -1218,7 +1208,7 @@ function renderDeptCustTable() {
     document.querySelector('#deptCustTable tbody').innerHTML = tbody;
   }
   if (R.length>0) { build(R); }
-  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
 }
 
 var drillDeptCust = null, chDeptDrill = null;
@@ -1275,7 +1265,7 @@ function toggleDeptDrill(name, el) {
     }, 100);
   }
   if (R.length>0) { renderDrill(R); }
-  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){ renderDrill(rows); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){ renderDrill(rows); }); }
 }
 
 function renderDeptCustBar() {
@@ -1392,7 +1382,7 @@ function renderDeptKPIs() {
     }).join('');
   }
   if (R.length > 0) { build(R); }
-  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){ R=rows; build(R); }); }
 }
 
 function renderDeptMonthly() {
@@ -1610,7 +1600,7 @@ function toggleSpDrill(name, el) {
   if (R.length > 0) { renderDrill(R); }
   else {
     dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
-    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrill(R);
     });
   }
@@ -1830,7 +1820,7 @@ function toggleBrandDrill(name, el) {
   if (R.length > 0) { renderDrill(R); }
   else {
     dd.innerHTML = '<div class=\"cust-drilldown\"><p style=\"color:var(--muted);\">正在加载...</p></div>';
-    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderDrill(R);
     });
   }
@@ -1844,7 +1834,7 @@ const detailPageSize = 50;
 
 function initDetailTab() {
   if (R.length === 0) {
-    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(r => r.json()).then(rows => {
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(r => r.json()).then(rows => {
       R = rows;
       initDetailFilters();
       filterDetailTable();
@@ -1933,7 +1923,7 @@ function exportDetailCSV() {
 // ---- Init ----
 async function loadRows() {
   if(__exportMode && __embeddedRows){ return __embeddedRows; }
-  const resp = {ok:true, json:function(){return Promise.resolve(R)}};
+  const resp = {ok:true, json:function(){return Promise.resolve(__R)}};
   R = await resp.json();
   filteredR = [...R];
   renderTable();
@@ -2294,7 +2284,7 @@ function showSankeyDetail(source, target) {
   }
 
   function loadAndRender() {
-    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json()}).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json()}).then(function(rows){
       R = rows; renderWithRows(R);
     }).catch(function(){
       titleEl.textContent = 'Failed to load detail data. Please open the Detail tab first.';
@@ -2357,7 +2347,7 @@ function renderRankChange() {
   if (R.length > 0) {
     build(R);
   } else {
-    Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){ return r.json(); }).then(function(rows){
+    Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){ return r.json(); }).then(function(rows){
       R = rows; build(R);
     });
   }
@@ -2401,37 +2391,12 @@ function renderProdLifecycle() {
     el.innerHTML = h;
   }
   if (R.length>0) { build(R); }
-  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(R)}}).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
+  else { Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
 }
 
-// main() closes here
-}
-
-// Export functions
-async function doExport(fmt){
-  var report = await loadReport();
-  if(report) await exportReport(fmt, report);
-}
-async function doSave(){
-  var report = await loadReport();
-  if(!report) return;
-  try {
-    var resp = await fetch('/api/reports/save', {
-      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
-      body: JSON.stringify({DATA:report.DATA, detailRows:report.detailRows, reportType:'sales', fileNames:report.fileNames, id:report.id}),
-    });
-    var json = await resp.json();
-    alert(json.ok ? '已保存到云端' : '保存失败: '+json.error);
-  } catch(e) { alert('保存失败: '+e.message); }
-}
-async function doClear(){
-  if(confirm('确定清除当前报告数据？')){ await clearReport(); window.location.href='index.html'; }
-}
-
-// Also replace the fetch for sales rows with a local fallback
-var _origFetchRows = function(){
-  // R already loaded from IndexedDB, no server fetch needed
-};
+async function doExport(fmt){ var r=await loadReport(); if(r) await exportReport(fmt,r); }
+async function doSave(){ var r=await loadReport(); if(!r)return; var resp=await fetch('/api/reports/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({DATA:r.DATA,detailRows:r.detailRows,reportType:'sales',fileNames:r.fileNames,id:r.id})}); var j=await resp.json(); alert(j.ok?'已保存':'保存失败: '+j.error); }
+async function doClear(){ if(confirm('确定清除？')){ await clearReport(); window.location.href='index.html'; } }
 
 </script>
 </body>

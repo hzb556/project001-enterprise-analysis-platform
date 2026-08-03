@@ -8,6 +8,8 @@
 <script src="js/vendor/tabulator.min.js"></script>
 <script src="js/shared/tabulator-builder.js"></script>
 <link href="css/variables.css" rel="stylesheet">
+<script src="js/shared/storage.js"></script>
+<script src="js/shared/export.js"></script>
 <style>
 body{padding:0}
 .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px;flex-wrap:wrap}
@@ -120,22 +122,24 @@ tr:hover td{background:#1e1e40}
 </style>
 </head>
 <body>
-<div class="topbar" style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--border);margin-bottom:18px">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--border)">
   <span style="font-weight:700;color:#fff">📊 费用深度诊断看板</span>
   <div style="display:flex;gap:8px;align-items:center">
-    <span id="topReportName" style="font-size:10px;color:var(--muted)"></span>
+    <span id="topName" style="font-size:10px;color:var(--muted)"></span>
     <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:5px">← 返回</a>
-    <a href="#" onclick="doExport('html')" style="color:var(--green);border-color:var(--green);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--green);border-radius:5px">📥 导出</a>
+    <a href="#" onclick="doExport('html')" style="color:var(--green);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--green);border-radius:5px">📥 导出</a>
     <a href="#" onclick="doExport('excel')" style="color:#4caf84;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #4caf84;border-radius:5px">📥 Excel</a>
     <a href="#" onclick="doSave()" style="color:#a855f7;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #a855f7;border-radius:5px">☁ 保存</a>
     <button onclick="doClear()" style="background:transparent;color:var(--red);border:1px solid #ff525240;border-radius:5px;cursor:pointer;font-size:11px;padding:4px 10px">🗑 清除</button>
   </div>
 </div>
 
-<div class="load-overlay done" id="loadOverlay">
+<div class="loading-bar-wrap" id="loadBar"{% if export_mode %} style="display:none"{% endif %}><div class="loading-bar" id="loadBarInner"></div></div>
+
+<div class="load-overlay" id="loadOverlay"{% if export_mode %} style="display:none"{% endif %}>
   <div class="load-spin"></div>
   <div class="load-msg">正在加载明细数据...</div>
-  <div class="load-sub" id="loadSub">数据准备中</div>
+  <div class="load-sub" id="loadSub">46,588 条费用记录就绪中</div>
 </div>
 
 <div class="hdr">
@@ -144,7 +148,7 @@ tr:hover td{background:#1e1e40}
 <select id="yf" onchange="onYr()"></select>
 <input id="srch" placeholder="搜索摘要/项目..." oninput="onFlt()">
 <span class="nav-links">
-  <span style="font-size:10px;color:var(--muted)">报告: <span id="lblReportId"></span></span>
+  <span style="font-size:10px;color:var(--muted)">报告: <span id="lblId"></span></span>
   <a href="index.html">⬅ 重新上传</a>
   <a href="#" onclick="doExport('html')" style="color:var(--green);border-color:var(--green)">📥 导出</a>
 </span>
@@ -241,34 +245,19 @@ tr:hover td{background:#1e1e40}
 <!-- Diagnostics -->
 <div class="diag" id="diag"></div>
 
-<script src="js/shared/storage.js"></script>
-<script src="js/shared/export.js"></script>
 <script>
 var D = {}, R = [], REPORT_ID = '', __exportMode = false;
 (async function init(){
-  try {
-    var report = await loadReport();
-    if (!report || !report.DATA) {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">没有报告数据</h1><p style="color:var(--muted)">请先上传文件进行分析</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回上传页面</a></div>';
-      return;
-    }
-    D = report.DATA || {};
-    R = report.detailRows || [];
-    REPORT_ID = report.id || '';
-    if (!Object.keys(D).length && !R.length) {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">报告数据为空</h1><p style="color:var(--muted)">分析结果中没有数据。请返回重新上传文件。</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回上传页面</a></div>';
-      return;
-    }
-    document.getElementById('lblReportId').textContent = REPORT_ID;
-    document.getElementById('topReportName').textContent = (report.fileNames||['-']).join(', ');
-    main();
-  } catch(e) {
-    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">加载失败</h1><p>'+e.message+'</p></div>';
+  var r = await loadReport();
+  if (r && r.DATA) {
+    D = r.DATA; R = r.detailRows||[]; REPORT_ID = r.id||'';
+    document.getElementById('lblId').textContent = REPORT_ID;
+    document.getElementById('topName').textContent = (r.fileNames||['-']).join(', ');
+    document.getElementById('loadOverlay').classList.remove('done');
+    document.getElementById('loadSub').textContent = R.length + ' 条记录加载中';
   }
+  main();
 })();
-
-function main(){
-console.log('[费用看板] 开始渲染, D keys='+(D?Object.keys(D).length:0)+' rows='+R.length);
 var tp=1,PS=20,sk='amt',sd=-1;
 var fs=[],ci={},echReady=false;
 var mA_diff=false,mA_unit='w';
@@ -281,10 +270,9 @@ function or0(v){return v||0}
 // ---- ECharts loader ----
 function ldE(cb){
   if(typeof echarts!=='undefined'){echReady=true;cb();return}
-  console.warn('[费用看板] ECharts 未加载，尝试 CDN...');
   var s=document.createElement('script');
   s.src='https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js';
-  s.onload=function(){echReady=true;cb();console.log('[费用看板] ECharts CDN OK');};
+  s.onload=function(){echReady=true;cb()};
   s.onerror=function(){console.warn('ECharts CDN failed');cb()};
   document.head.appendChild(s);
 }
@@ -292,7 +280,6 @@ function initCh(el){var d=document.getElementById(el);if(!d)return null;d.innerH
 
 // ---- INIT (runs immediately for KPI, charts load async) ----
 function popF(){
-try{
   var yf=document.getElementById('yf');
   D.years.forEach(function(y){yf.appendChild(new Option(y+'年',y))});
   yf.value=D.cy;
@@ -335,7 +322,6 @@ try{
   });
   setMACompare('mom');
   setMA2Compare('mom');
-}catch(e){console.error('[费用看板] popF 失败:',e.message);}
 }
 
 // ---- KPI ----
@@ -751,30 +737,71 @@ function expCSV(){
   var csv='﻿年,月,科目,部门,核算项目,摘要,金额\n';rows.forEach(function(r){csv+=r.y+','+r.m+','+r.sn+','+r.did+','+r.cat+',"'+r.summ.replace(/"/g,'""')+'",'+r.amt+'\n'});var b=new Blob([csv],{type:'text/csv;charset=utf-8;'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='费用明细导出.csv';a.click();URL.revokeObjectURL(a.href);
 }
 
-} // close main()
+// ---- DIAGNOSTICS ----
+document.getElementById('diag').innerHTML = D.diagHTML || '<p style="color:var(--muted)">诊断数据未加载</p>';
 
-// Move diagnostics inside main flow
-setTimeout(function(){ document.getElementById('diag').innerHTML = D.diagHTML || '<p style=\"color:var(--muted)\">诊断数据未加载</p>'; }, 500);
+// ---- MAIN ----
+function main(){
+  // Init UI immediately (doesn't need detail rows)
+  popF(); rK();
+  // Show loading overlay
+  document.getElementById('loadOverlay').classList.remove('done');
 
-// Export functions
+  // Load detail rows via API
+  var startTime = Date.now();
+  Promise.resolve({ok:true, json: function(){return Promise.resolve(R)}})
+    .then(function(resp){
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      return resp.json();
+    })
+    .then(function(rows){
+      R = rows;
+      var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log('Loaded '+R.length+' rows in '+elapsed+'s');
+      document.getElementById('loadOverlay').classList.add('done');
+
+      // Init charts (ECharts may load async too)
+      ldE(function(){
+        rC1(); rC2(D.cy); rC3(); rC4(D.cy); rC4b(D.cy);
+      });
+
+      // Init interactive panels
+      setMAUnit('w'); rMA();
+      try{setMA2Unit('w'); rMA2()}catch(e){console.warn('MA2 init error:', e)}
+
+      // Init Tabulator table
+      buildExpenseTable();
+
+      // Resize handler
+      window.addEventListener('resize',function(){
+        for(var k in ci)if(ci[k]&&ci[k].resize)ci[k].resize();
+      });
+    })
+    .catch(function(e){
+      document.getElementById('loadOverlay').innerHTML =
+        '<div style="color:var(--red);text-align:center">' +
+        '<p style="font-size:16px;margin-bottom:8px">❌ 数据加载失败</p>' +
+        '<p style="font-size:12px;color:var(--muted)">'+e.message+'</p>' +
+        '<p style="margin-top:12px"><a href="/" style="color:var(--blue);font-size:12px">⬅ 返回重新上传</a></p>' +
+        '</div>';
+    });
+}
+
+// Launch — main() called by init() after IndexedDB load
+
 async function doExport(fmt){
-  var report = await loadReport();
-  if(report) await exportReport(fmt, report);
+  var r = await loadReport();
+  if (r) { await exportReport(fmt, r); }
 }
 async function doSave(){
-  var report = await loadReport();
-  if(!report) return;
-  try {
-    var resp = await fetch('/api/reports/save', {
-      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
-      body: JSON.stringify({DATA:report.DATA, detailRows:report.detailRows, reportType:'expense', fileNames:report.fileNames, id:report.id}),
-    });
-    var json = await resp.json();
-    alert(json.ok ? '已保存到云端' : '保存失败: '+json.error);
-  } catch(e) { alert('保存失败: '+e.message); }
+  var r = await loadReport();
+  if (!r) return;
+  var resp = await fetch('/api/reports/save', {method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({DATA:r.DATA,detailRows:r.detailRows,reportType:'expense',fileNames:r.fileNames,id:r.id})});
+  var j = await resp.json();
+  alert(j.ok ? '已保存到云端' : '保存失败: '+j.error);
 }
 async function doClear(){
-  if(confirm('确定清除当前报告数据？')){ await clearReport(); window.location.href='index.html'; }
+  if (confirm('确定清除？')){ await clearReport(); window.location.href='index.html'; }
 }
 
 </script>

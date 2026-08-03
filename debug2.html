@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>渲染诊断</title>
+<link href="css/variables.css" rel="stylesheet">
+<style>
+.kpi-r{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.kpi-c{background:var(--card);border-radius:10px;padding:16px;border:1px solid var(--border)}
+.kpi-c .lbl{font-size:12px;color:var(--muted)}
+.kpi-c .val{font-size:24px;font-weight:700;color:#fff}
+.err{color:red;padding:10px;margin:10px 0}
+</style>
+</head>
+<body style="background:var(--bg);color:var(--text);font-family:sans-serif;padding:20px">
+<h2>渲染诊断 — Step by Step</h2>
+<div id="out"></div>
+
+<script src="js/shared/storage.js"></script>
+<script>
+var el = document.getElementById('out');
+(async function(){
+  var log = [];
+  function step(msg, ok){ log.push('<div class="'+(ok?'':'err')+'">'+(ok?'✅':'❌')+' '+msg+'</div>'); el.innerHTML = log.join(''); }
+
+  try {
+    step('加载 IndexedDB...', true);
+    var r = await loadReport();
+    if (!r) { step('无数据', false); return; }
+    step('数据加载成功: '+r.reportType+', '+(r.detailRows||[]).length+' 行', true);
+
+    var D = r.DATA;
+    step('D.years: '+(D.years||[]).join(','), (D.years||[]).length>0);
+    step('D.depts: '+(D.depts||[]).length+' 部门', (D.depts||[]).length>0);
+    step('D.kpi.total: '+(D.kpi.total||{}).curr, !!D.kpi.total);
+    step('D.snames: '+(D.snames||[]).length+' 科目', (D.snames||[]).length>0);
+
+    // Try populating dropdown
+    var yf = document.createElement('select');
+    try {
+      D.years.forEach(function(y){ yf.appendChild(new Option(y+'年',y)); });
+      yf.value = D.cy;
+      step('年份下拉: '+yf.options.length+' 选项', yf.options.length>0);
+    } catch(e) { step('年份下拉失败: '+e.message, false); }
+
+    // Try rendering KPI
+    try {
+      var kpiSource = D.kpi;
+      var ids=['total'].concat(D.sids||[]);
+      var cards = ids.map(function(id,i){
+        var k = kpiSource[id];
+        if (!k) return '<div class="kpi-c"><div class="lbl">'+id+'</div><div class="val">N/A</div></div>';
+        return '<div class="kpi-c"><div class="lbl">'+(k.name||id)+'</div><div class="val">'+(k.curr/10000).toFixed(0)+' 万</div></div>';
+      }).join('');
+      document.body.insertAdjacentHTML('beforeend', '<h3>KPI 卡片</h3><div class="kpi-r">'+cards+'</div>');
+      step('KPI 卡片: '+ids.length+' 张', true);
+    } catch(e) { step('KPI 渲染失败: '+e.message, false); }
+
+    // Try diagnostics
+    try {
+      if (D.diagHTML) {
+        document.body.insertAdjacentHTML('beforeend', '<h3>诊断结论</h3><div>'+D.diagHTML+'</div>');
+        step('诊断结论: '+(D.diagHTML.length)+' 字符', true);
+      }
+    } catch(e) { step('诊断失败: '+e.message, false); }
+
+    step('渲染测试完成', true);
+  } catch(e) { step('FATAL: '+e.message, false); }
+})();
+</script>
+</body></html>

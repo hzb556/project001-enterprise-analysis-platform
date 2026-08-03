@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>IndexedDB 诊断</title></head>
+<body style="background:#0b0b18;color:#e0e0e0;font-family:monospace;padding:20px">
+<h1>IndexedDB 诊断</h1>
+<div id="out"></div>
+<script src="js/shared/storage.js"></script>
+<script>
+(async function(){
+  var el = document.getElementById('out');
+  try {
+    var r = await loadReport();
+    if (!r) { el.innerHTML = '<p style="color:red">IndexedDB 中无数据！分析结果没有保存成功。</p>'; return; }
+    var D = r.DATA || {};
+    var rows = r.detailRows || [];
+    var h = '<h2 style="color:green">数据存在</h2>';
+    h += '<p>reportType: '+r.reportType+'</p>';
+    h += '<p>fileNames: '+(r.fileNames||[]).join(', ')+'</p>';
+    h += '<p>DATA keys ('+Object.keys(D).length+'): '+Object.keys(D).join(', ')+'</p>';
+    h += '<p>years: '+(D.years||[]).join(', ')+'</p>';
+    h += '<p>cy: '+D.cy+', lm: '+D.lm+'</p>';
+    h += '<p>depts: '+(D.depts||[]).length+' items</p>';
+    h += '<p>cats: '+(D.cats||[]).length+' items</p>';
+    h += '<p>detailRows: '+rows.length+' rows</p>';
+    h += '<p>KPI keys: '+Object.keys(D.kpi||{}).join(', ')+'</p>';
+    if (rows.length) {
+      h += '<p>First row: '+JSON.stringify(rows[0])+'</p>';
+    }
+    el.innerHTML = h;
+  } catch(e) {
+    el.innerHTML = '<p style="color:red">Error: '+e.message+'</p>';
+  }
+})();
+</script>
+</body></html>

@@ -132,10 +132,10 @@ tr:hover td{background:#1e1e40}
   </div>
 </div>
 
-<div class="load-overlay" id="loadOverlay" style="display:none">
+<div class="load-overlay done" id="loadOverlay">
   <div class="load-spin"></div>
   <div class="load-msg">正在加载明细数据...</div>
-  <div class="load-sub" id="loadSub"></div>
+  <div class="load-sub" id="loadSub">数据准备中</div>
 </div>
 
 <div class="hdr">
@@ -749,22 +749,27 @@ document.getElementById('diag').innerHTML = D.diagHTML || '<p style="color:var(-
 // ---- MAIN ----
 function main(){
   console.log('[费用看板] 数据就绪: '+R.length+' 行, D keys='+Object.keys(D).length);
+  var overlay = document.getElementById('loadOverlay');
+  document.getElementById('loadSub').textContent = R.length + ' 条费用记录加载中';
+  // Show overlay during init
+  overlay.classList.remove('done');
+
   try {
     popF();
     rK();
-    // Init charts
     ldE(function(){
       try { rC1(); rC2(D.cy); rC3(); rC4(D.cy); rC4b(D.cy); } catch(e) { console.error('图表错误:', e); }
     });
-    // Interactive panels
     try { setMAUnit('w'); rMA(); } catch(e) { console.error('MA:', e); }
     try { setMA2Unit('w'); rMA2(); } catch(e) { console.error('MA2:', e); }
-    // Table
-    setTimeout(function(){ try { buildExpenseTable(); } catch(e) { console.error('Table:', e); } }, 100);
+    setTimeout(function(){
+      try { buildExpenseTable(); } catch(e) { console.error('Table:', e); }
+      // All done — hide overlay
+      overlay.classList.add('done');
+    }, 200);
   } catch(e) {
-    console.error('[费用看板] 初始化失败:', e.message, e.stack);
-    document.getElementById('loadOverlay').innerHTML = '<div style=\"color:var(--red);text-align:center;padding:40px\"><p>初始化失败</p><p style=\"font-size:12px;color:var(--muted)\">'+e.message+'</p></div>';
-    document.getElementById('loadOverlay').style.display = 'flex';
+    console.error('[费用看板] 初始化失败:', e.message);
+    overlay.innerHTML = '<div style=\"color:var(--red);text-align:center;padding:40px\"><p style=\"font-size:18px\">❌ 初始化失败</p><p style=\"font-size:14px;color:var(--muted)\">'+e.message+'</p><p style=\"margin-top:16px\"><a href=\"index.html\" style=\"color:var(--blue)\">← 返回重新上传</a></p></div>';
   }
 
   // Resize handler

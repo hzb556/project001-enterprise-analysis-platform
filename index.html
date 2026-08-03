@@ -663,7 +663,10 @@ async function saveAndGo(result){
   }
 
   hideLoading();
-  window.location.href = (currentModule === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
+  // 确保 IndexedDB 事务提交完毕后再跳转
+  setTimeout(function(){
+    window.location.href = (currentModule === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
+  }, 500);
 }
 
 // ============ MAPPING MODAL ============

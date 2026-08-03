@@ -32,33 +32,35 @@ function openDB() {
 // ---- 公开 API ----
 
 /**
- * 保存报告数据到 IndexedDB
- * @param {Object} data - { DATA, detailRows, reportType, fileNames }
+ * 保存报告数据到 IndexedDB（等待事务完全提交后才返回）
  */
 async function saveReport(data) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
-        const record = {
-            ...data,
-            timestamp: Date.now(),
-        };
-        const request = store.put(record, REPORT_KEY);
-        request.onsuccess = () => {
+        store.put({ ...data, timestamp: Date.now() }, REPORT_KEY);
+
+        // 等待事务完全提交（而非仅 put 成功），确保数据落盘
+        tx.oncomplete = () => {
             db.close();
+            console.log('[Storage] 保存完成, 事务已提交');
             resolve();
         };
-        request.onerror = () => {
+        tx.onerror = () => {
             db.close();
-            reject(request.error);
+            console.error('[Storage] 保存失败:', tx.error);
+            reject(tx.error);
+        };
+        tx.onabort = () => {
+            db.close();
+            reject(new Error('事务被中止'));
         };
     });
 }
 
 /**
  * 读取当前缓存的报告
- * @returns {Object|null} 报告数据，无缓存时返回 null
  */
 async function loadReport() {
     const db = await openDB();
@@ -66,9 +68,16 @@ async function loadReport() {
         const tx = db.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
         const request = store.get(REPORT_KEY);
+
         request.onsuccess = () => {
+            const result = request.result || null;
             db.close();
-            resolve(request.result || null);
+            if (result) {
+                console.log('[Storage] 加载完成:', (result.detailRows||[]).length, '行');
+            } else {
+                console.log('[Storage] 无缓存数据');
+            }
+            resolve(result);
         };
         request.onerror = () => {
             db.close();
@@ -93,15 +102,15 @@ async function clearReport() {
     return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
-        const request = store.delete(REPORT_KEY);
-        request.onsuccess = () => {
+        store.delete(REPORT_KEY);
+        tx.oncomplete = () => {
             db.close();
-            console.log('[Storage] 报告缓存已清除');
+            console.log('[Storage] 缓存已清除');
             resolve();
         };
-        request.onerror = () => {
+        tx.onerror = () => {
             db.close();
-            reject(request.error);
+            reject(tx.error);
         };
     });
 }
@@ -117,6 +126,6 @@ async function getCacheInfo() {
         fileNames: report.fileNames,
         rowCount: report.detailRows ? report.detailRows.length : 0,
         timestamp: report.timestamp,
-        age: Math.round((Date.now() - report.timestamp) / 1000), // 秒
+        age: Math.round((Date.now() - report.timestamp) / 1000),
     };
 }

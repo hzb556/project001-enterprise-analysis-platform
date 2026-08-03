@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分析报告 — 企业运营分析平台</title>
+<script src="js/vendor/echarts.min.js"></script>
+<script src="js/vendor/tabulator.min.js"></script>
+<link href="css/tabulator_midnight.min.css" rel="stylesheet">
+<script src="js/shared/tabulator-builder.js"></script>
+<link href="css/variables.css" rel="stylesheet">
+<style>
+body{min-height:100vh;background:var(--bg,#0b0b18);color:var(--text,#e0e0e0);font-family:"Microsoft YaHei","PingFang SC",sans-serif}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--card,#12122a);border-bottom:1px solid var(--border,#1e1e40);position:sticky;top:0;z-index:100}
+.topbar .logo{font-size:16px;font-weight:700;color:#fff}
+.topbar .actions{display:flex;gap:8px;align-items:center}
+.btn-back{padding:6px 14px;background:transparent;color:var(--muted,#8892b0);border:1px solid var(--border,#1e1e40);border-radius:6px;cursor:pointer;text-decoration:none;font-size:13px;transition:all .2s}
+.btn-back:hover{color:#fff;border-color:var(--blue,#5b9bd5)}
+.btn-export{padding:6px 14px;background:var(--blue,#5b9bd5);color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;transition:filter .2s}
+.btn-export:hover{filter:brightness(1.1)}
+.btn-clear{padding:6px 14px;background:transparent;color:var(--red,#ff5252);border:1px solid #ff525240;border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+.btn-clear:hover{background:#ff525210}
+.main{max-width:1400px;margin:0 auto;padding:20px 24px}
+.main h1{font-size:22px;margin-bottom:4px;color:#fff}
+.main .subtitle{color:var(--muted,#8892b0);font-size:13px;margin-bottom:24px}
+
+/* KPI Cards */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+.kpi-card{background:var(--card,#12122a);border-radius:10px;padding:18px;border:1px solid var(--border,#1e1e40)}
+.kpi-card .kl{color:var(--muted,#8892b0);font-size:12px;margin-bottom:6px}
+.kpi-card .kv{font-size:26px;font-weight:700;color:#fff}
+.kpi-card .ks{font-size:12px;margin-top:4px}
+
+/* Chart Row */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:900px){.chart-row{grid-template-columns:1fr}}
+.chart-panel{background:var(--card,#12122a);border-radius:10px;padding:18px;border:1px solid var(--border,#1e1e40)}
+.chart-panel h3{font-size:14px;color:var(--muted,#8892b0);margin-bottom:12px}
+.chart-box{width:100%;height:380px}
+.chart-box-sm{width:100%;height:280px}
+
+/* Tabs */
+.tab-bar{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab-btn{padding:8px 18px;background:var(--card,#12122a);color:var(--muted,#8892b0);border:1px solid var(--border,#1e1e40);border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s}
+.tab-btn:hover{color:#fff;border-color:var(--blue,#5b9bd5)}
+.tab-btn.active{background:var(--blue,#5b9bd5);color:#000;border-color:var(--blue,#5b9bd5);font-weight:600}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* Controls */
+.controls{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.controls select,.controls input{padding:7px 10px;background:var(--bg,#0b0b18);color:var(--text,#e0e0e0);border:1px solid var(--border,#1e1e40);border-radius:6px;font-size:13px}
+.table-wrap{overflow-x:auto}
+
+/* Diagnostics */
+.diag{background:var(--card,#12122a);border-radius:10px;padding:22px;border:1px solid var(--border,#1e1e40);margin-bottom:14px;line-height:1.7}
+.diag h2{font-size:17px;margin-bottom:14px;color:#fff}
+.diag h3{font-size:14px;margin:14px 0 6px;color:var(--blue,#5b9bd5)}
+.diag ul{padding-left:18px}
+.diag li{margin:5px 0;color:var(--muted,#8892b0)}
+.up{color:var(--red,#ff5252)}.dn{color:var(--green,#4caf84)}
+
+/* Export Toast */
+.export-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a3a;color:#4caf84;padding:14px 28px;border-radius:10px;font-size:14px;z-index:9999;border:1px solid #4caf8440;box-shadow:0 8px 32px rgba(0,0,0,0.5);opacity:1;transition:opacity .5s}
+.export-toast.fade{opacity:0}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <span class="logo" id="topTitle">📊 分析报告</span>
+  <div class="actions">
+    <a href="index.html" class="btn-back">← 返回</a>
+    <button class="btn-export" onclick="doExport('html')">📥 导出 HTML</button>
+    <button class="btn-export" onclick="doExport('excel')" style="background:#4caf84">📥 导出 Excel</button>
+    <button class="btn-export" onclick="doExport('csv')" style="background:#ffa726">📥 导出 CSV</button>
+    <button class="btn-export" onclick="doSaveToServer()" style="background:#a855f7">☁ 保存到云端</button>
+    <button class="btn-clear" onclick="doClear()">🗑 清除数据</button>
+  </div>
+</div>
+
+<div class="main">
+  <h1 id="reportTitle">分析报告</h1>
+  <p class="subtitle" id="reportSubtitle">数据来源：- | 行数：-</p>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar" id="tabBar"></div>
+
+  <!-- Tab: Overview -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="controls"><select id="yearFilter"></select></div>
+    <div class="kpi-row" id="kpiRow"></div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 年度趋势</h3><div class="chart-box" id="chYearly"></div></div>
+      <div class="chart-panel"><h3>📈 月度趋势</h3><div class="chart-box" id="chMonthly"></div></div>
+    </div>
+    <div class="chart-row" id="sunburstRow" style="display:none">
+      <div class="chart-panel"><h3>🍩 客户/科目占比</h3><div class="chart-box" id="chSunburst1"></div></div>
+      <div class="chart-panel"><h3>🍩 产品/部门占比</h3><div class="chart-box" id="chSunburst2"></div></div>
+    </div>
+    <div class="diag" id="diagBox"></div>
+  </div>
+
+  <!-- Tab: Customer (sales) -->
+  <div class="tab-content" id="tab-customer">
+    <div class="controls">
+      <select id="custYear"></select>
+      <select id="custSort"><option value="revenue">按收入</option><option value="yoy">按同比</option><option value="gp_margin">按毛利率</option></select>
+      <input type="text" id="custSearch" placeholder="搜索客户..." oninput="renderCustTable()">
+    </div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 Top 10 客户收入（万元）</h3><div class="chart-box" id="chCustBar"></div></div>
+      <div class="chart-panel"><h3>🎯 收入 vs 毛利率</h3><div class="chart-box" id="chCustScatter"></div></div>
+    </div>
+    <div class="chart-panel" style="margin-bottom:14px"><h3>👥 客户列表</h3><div class="table-wrap"><table id="custTable"><thead></thead><tbody></tbody></table></div></div>
+  </div>
+
+  <!-- Tab: Product (sales) -->
+  <div class="tab-content" id="tab-product">
+    <div class="controls"><select id="prodYear"></select></div>
+    <div class="chart-row">
+      <div class="chart-panel"><h3>📊 Top 10 产品收入（万元）</h3><div class="chart-box" id="chProdBar"></div></div>
+      <div class="chart-panel"><h3>🎯 收入 vs 毛利率</h3><div class="chart-box" id="chProdScatter"></div></div>
+    </div>
+    <div class="chart-panel" style="margin-bottom:14px"><h3>📦 产品列表</h3><div class="table-wrap"><table id="prodTable"><thead></thead><tbody></tbody></table></div></div>
+  </div>
+
+  <!-- Tab: Detail -->
+  <div class="tab-content" id="tab-detail">
+    <div class="chart-panel">
+      <h3 style="margin-bottom:12px">📋 明细数据</h3>
+      <div class="controls">
+        <input type="text" id="detailSearch" placeholder="搜索..." oninput="filterDetail()">
+        <select id="detailYear" onchange="filterDetail()"><option value="all">全部年份</option></select>
+        <span style="color:var(--muted);font-size:12px" id="detailInfo"></span>
+      </div>
+      <div class="table-wrap"><div id="detailTable"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCRIPTS ==================== -->
+<script src="js/shared/storage.js"></script>
+<script src="js/shared/export.js"></script>
+<script src="js/shared/utils.js"></script>
+
+<script>
+// ============ GLOBAL STATE ============
+let D = {};            // DATA
+let R = [];            // detail rows
+let reportType = '';
+let reportInfo = {};
+let activeTab = 'overview';
+let charts = {};       // chart instances
+
+// ============ INIT ============
+async function init() {
+  const report = await loadReport();
+  if (!report) {
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">没有报告数据</h1><p style="color:var(--muted)">请先上传文件进行分析</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回上传页面</a></div>';
+    return;
+  }
+  D = report.DATA || {};
+  R = report.detailRows || [];
+  reportType = report.reportType || 'expense';
+  reportInfo = report;
+
+  document.getElementById('topTitle').textContent = (reportType==='sales'?'📈 销售分析报告':'📊 费用分析报告');
+  document.getElementById('reportTitle').textContent = (reportType==='sales'?'📈 销售分析报告':'📊 费用分析报告');
+  document.getElementById('reportSubtitle').textContent = `数据文件：${(report.fileNames||['-']).join(', ')} | 数据行数：${R.length} | 年份：${(D.years||[]).join('、')}`;
+
+  buildTabs();
+  renderOverview();
+}
+
+function buildTabs() {
+  const tabs = [{id:'overview',label:'📊 总览'}];
+  if (reportType === 'sales') {
+    tabs.push({id:'customer',label:'👥 客户'});
+    tabs.push({id:'product',label:'📦 产品'});
+  }
+  tabs.push({id:'detail',label:'📋 明细'});
+  const tb = document.getElementById('tabBar');
+  tb.innerHTML = tabs.map(t => `<button class="tab-btn${t.id==='overview'?' active':''}" data-tab="${t.id}" onclick="switchTab('${t.id}')">${t.label}</button>`).join('');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-'+name));
+  activeTab = name;
+  // Lazy init
+  if (name === 'customer' && !charts._custReady) { initCustTab(); charts._custReady = true; }
+  if (name === 'product' && !charts._prodReady) { initProdTab(); charts._prodReady = true; }
+  if (name === 'detail' && !charts._detailReady) { initDetailTab(); charts._detailReady = true; }
+  setTimeout(() => resizeCharts(name), 150);
+}
+
+function resizeCharts(tab) {
+  Object.entries(charts).forEach(([k,c]) => {
+    if (c && c.resize && !k.startsWith('_')) c.resize();
+  });
+}
+
+// ============ OVERVIEW ============
+function renderOverview() {
+  const yf = document.getElementById('yearFilter');
+  yf.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===D.cy?'selected':''}>${y}年</option>`).join('');
+  yf.onchange = () => { renderKPIs(); renderYearly(); renderMonthly(); };
+  renderKPIs();
+  renderYearly();
+  renderMonthly();
+  if (reportType === 'sales') renderSunbursts();
+  renderDiagnostics();
+}
+
+function renderKPIs() {
+  const kpi = D.kpi || {};
+  let cards = [];
+  if (reportType === 'sales') {
+    const rev = ((kpi.revenue||0)/10000).toFixed(0);
+    const gm = (kpi.gp_margin||0).toFixed(1);
+    const custs = kpi.customers || 0;
+    const cagr = (D.cagr||0).toFixed(1);
+    cards = [
+      {l:'当期收入',v:rev+' 万',s:''},
+      {l:'毛利率',v:gm+'%',s:''},
+      {l:'成交客户',v:custs,s:''},
+      {l:'CAGR',v:cagr+'%',s:''},
+    ];
+  } else {
+    const total = kpi.total || {};
+    cards = [
+      {l:'当期总费用',v:(((total.curr||0))/10000).toFixed(0)+' 万',s:''},
+      {l:'固定费用占比',v:(D.fixedPct||0).toFixed(0)+'%',s:''},
+      {l:'部门数',v:(D.depts||[]).length,s:''},
+      {l:'CAGR',v:(D.cagr||0).toFixed(1)+'%',s:''},
+    ];
+  }
+  document.getElementById('kpiRow').innerHTML = cards.map(c =>
+    `<div class="kpi-card"><div class="kl">${c.l}</div><div class="kv">${c.v}</div><div class="ks">${c.s}</div></div>`
+  ).join('');
+}
+
+function renderYearly() {
+  const el = document.getElementById('chYearly');
+  if (!charts.chYearly) charts.chYearly = echarts.init(el);
+  const selY = parseInt(document.getElementById('yearFilter').value) || D.cy;
+  const years = D.years || [];
+  if (reportType === 'sales') {
+    const vals = years.map(y => {
+      const row = D.kpiByYear && D.kpiByYear[String(y)] ? (D.kpiByYear[String(y)].revenue||0)/10000 : 0;
+      return Math.round(row*10)/10;
+    });
+    const yoy = years.map((y,i) => {
+      if (i===0) return null;
+      return vals[i-1]>0 ? Math.round((vals[i]/vals[i-1]-1)*1000)/10 : null;
+    });
+    charts.chYearly.setOption({
+      tooltip:{trigger:'axis'},
+      grid:{left:60,right:20,top:40,bottom:30},
+      xAxis:{type:'category',data:years.map(String)},
+      yAxis:{type:'value',name:'万元'},
+      series:[{type:'bar',data:vals,itemStyle:{color:'#5b9bd5',borderRadius:[4,4,0,0]},
+        label:{show:true,position:'top',fontSize:10,color:'#a0a8c0',
+          formatter:p => yoy[p.dataIndex]!=null ? (yoy[p.dataIndex]>0?'+':'')+yoy[p.dataIndex]+'%' : ''}}]
+    });
+  } else {
+    const vals = years.map(y => {
+      if (D.kpiByYear && D.kpiByYear[String(y)]) {
+        const t = D.kpiByYear[String(y)].total || {};
+        return Math.round((t.curr||0)/100)/10;
+      }
+      return 0;
+    });
+    charts.chYearly.setOption({
+      tooltip:{trigger:'axis'},
+      grid:{left:60,right:20,top:40,bottom:30},
+      xAxis:{type:'category',data:years.map(String)},
+      yAxis:{type:'value',name:'万元'},
+      series:[{type:'bar',data:vals,itemStyle:{color:'#5b9bd5',borderRadius:[4,4,0,0]}}]
+    });
+  }
+}
+
+function renderMonthly() {
+  const el = document.getElementById('chMonthly');
+  if (!charts.chMonthly) charts.chMonthly = echarts.init(el);
+  const yms = D.yms || [];
+  if (reportType === 'sales') {
+    const vals = yms.map(ym => {
+      const t = R.filter(r => r.ym===ym).reduce((s,r) => s+(r.amt||0), 0);
+      return Math.round(t/100)/10;
+    });
+    charts.chMonthly.setOption({
+      tooltip:{trigger:'axis'},
+      grid:{left:60,right:20,top:20,bottom:30},
+      xAxis:{type:'category',data:yms,axisLabel:{rotate:45,fontSize:9,interval:Math.floor(yms.length/8)||'auto'}},
+      yAxis:{type:'value',name:'万元'},
+      dataZoom:[{type:'slider',start:0,end:100,height:20,bottom:0}],
+      series:[{type:'line',data:vals,smooth:true,itemStyle:{color:'#5b9bd5'},areaStyle:{color:'rgba(91,155,213,0.1)'}}]
+    });
+  } else {
+    const vals = yms.map(ym => {
+      const t = R.filter(r => r.ym===ym).reduce((s,r) => s+(r.amt||0), 0);
+      return Math.round(t/100)/10;
+    });
+    charts.chMonthly.setOption({
+      tooltip:{trigger:'axis'},
+      grid:{left:60,right:20,top:20,bottom:30},
+      xAxis:{type:'category',data:yms,axisLabel:{rotate:45,fontSize:9,interval:Math.floor(yms.length/8)||'auto'}},
+      yAxis:{type:'value',name:'万元'},
+      dataZoom:[{type:'slider',start:0,end:100,height:20,bottom:0}],
+      series:[{type:'line',data:vals,smooth:true,itemStyle:{color:'#5b9bd5'},areaStyle:{color:'rgba(91,155,213,0.1)'}}]
+    });
+  }
+}
+
+function renderSunbursts() {
+  document.getElementById('sunburstRow').style.display = '';
+  const cy = D.cy;
+  if (!charts.chSun1) charts.chSun1 = echarts.init(document.getElementById('chSunburst1'));
+  if (!charts.chSun2) charts.chSun2 = echarts.init(document.getElementById('chSunburst2'));
+  const custData = (D.sunburstByYear||{})[cy] || D.sunburst || [];
+  const prodData = (D.sunburstProdByYear||{})[cy] || [];
+  charts.chSun1.setOption({tooltip:{trigger:'item'},series:[{type:'sunburst',data:custData,radius:[0,'90%'],label:{rotate:'radial'}}]});
+  charts.chSun2.setOption({tooltip:{trigger:'item'},series:[{type:'sunburst',data:prodData,radius:[0,'90%'],label:{rotate:'radial'}}]});
+}
+
+function renderDiagnostics() {
+  document.getElementById('diagBox').innerHTML = D.diagHTML || '<p style="color:var(--muted)">暂无诊断结论</p>';
+}
+
+// ============ CUSTOMER TAB (sales only) ============
+function initCustTab() {
+  charts.chCustBar = echarts.init(document.getElementById('chCustBar'));
+  charts.chCustScatter = echarts.init(document.getElementById('chCustScatter'));
+  const sel = document.getElementById('custYear');
+  sel.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===D.cy?'selected':''}>${y}年</option>`).join('');
+  sel.onchange = () => { renderCustBar(); renderCustScatter(); renderCustTable(); };
+  document.getElementById('custSort').onchange = renderCustTable;
+  renderCustBar(); renderCustScatter(); renderCustTable();
+}
+
+function getFilteredCusts(sortBy, selY) {
+  const customers = D.customers || [];
+  const cr = D.custRevenue || {};
+  const cgpm = D.custGPMargin || {};
+  const cyoy = D.custYoY || {};
+  const years = D.years || [];
+  const yi = years.indexOf(selY);
+  const arr = customers.map(c => {
+    const rev = cr[c.name] && yi>=0 ? (cr[c.name][yi]||0) : (c.amt/10000||0);
+    return {name:c.name, rev, gpMargin:cgpm[c.name]||0, yoy:cyoy[c.name]!=null?cyoy[c.name]:null};
+  });
+  if (sortBy==='yoy') arr.sort((a,b)=>(b.yoy!=null?b.yoy:-Infinity)-(a.yoy!=null?a.yoy:-Infinity));
+  else if (sortBy==='gp_margin') arr.sort((a,b)=>b.gpMargin-a.gpMargin);
+  else arr.sort((a,b)=>b.rev-a.rev);
+  const q = (document.getElementById('custSearch').value||'').toLowerCase();
+  return q ? arr.filter(c => c.name.toLowerCase().includes(q)) : arr;
+}
+
+function renderCustBar() {
+  const selY = parseInt(document.getElementById('custYear').value) || D.cy;
+  const sorted = getFilteredCusts('revenue', selY).slice(0,10);
+  const names = sorted.map(c=>c.name), revs = sorted.map(c=>c.rev), yoy = sorted.map(c=>c.yoy);
+  charts.chCustBar.setOption({
+    tooltip:{trigger:'axis'},
+    grid:{left:100,right:30,top:40,bottom:70},
+    xAxis:{type:'category',data:names,axisLabel:{fontSize:10,rotate:45,overflow:'truncate',width:80}},
+    yAxis:{type:'value',name:'万元'},
+    series:[{type:'bar',data:revs,itemStyle:{color:'#5b9bd5',borderRadius:[4,4,0,0]},
+      label:{show:true,position:'top',fontSize:9,color:'#a0a8c0',
+        formatter:p=>yoy[p.dataIndex]!=null?(yoy[p.dataIndex]>0?'+':'')+yoy[p.dataIndex]+'%':''}}]
+  });
+}
+
+function renderCustScatter() {
+  const selY = parseInt(document.getElementById('custYear').value) || D.cy;
+  const custs = getFilteredCusts('revenue', selY).filter(c=>c.gpMargin>=-100);
+  const data = custs.map(c=>[c.rev,c.gpMargin,c.rev*(c.gpMargin||0)/100,c.name]);
+  charts.chCustScatter.setOption({
+    tooltip:{trigger:'item',formatter:p=>`<b>${p.data[3]}</b><br/>收入:${p.data[0].toFixed(1)}万<br/>毛利率:${p.data[1]}%`},
+    grid:{left:60,right:30,top:40,bottom:40},
+    xAxis:{type:'value',name:'万元'},yAxis:{type:'value',name:'毛利率%'},
+    series:[{type:'scatter',data,symbolSize:v=>Math.max(6,Math.min(40,Math.sqrt(Math.abs(v[2]||1))*4)),
+      itemStyle:{color:'#5b9bd5',opacity:.7},
+      label:{show:true,position:'right',fontSize:9,color:'#a0a8c0',formatter:p=>p.data[3].length>8?p.data[3].slice(0,8)+'..':p.data[3]}}]
+  });
+}
+
+function renderCustTable() {
+  const selY = parseInt(document.getElementById('custYear').value) || D.cy;
+  const sortBy = document.getElementById('custSort').value;
+  const custs = getFilteredCusts(sortBy, selY);
+  const thead = '<tr><th>客户</th><th>收入(万)</th><th>同比</th><th>毛利率</th></tr>';
+  const tbody = custs.map(c =>
+    `<tr><td><b>${c.name}</b></td><td>${c.rev.toFixed(1)}</td>
+    <td style="color:${c.yoy>0?'var(--red)':c.yoy<0?'var(--green)':'var(--muted)'}">${c.yoy!=null?(c.yoy>0?'+':'')+c.yoy+'%':'无'}</td>
+    <td>${c.gpMargin}%</td></tr>`
+  ).join('');
+  document.querySelector('#custTable thead').innerHTML = thead;
+  document.querySelector('#custTable tbody').innerHTML = tbody;
+}
+
+// ============ PRODUCT TAB (sales only) ============
+function initProdTab() {
+  charts.chProdBar = echarts.init(document.getElementById('chProdBar'));
+  charts.chProdScatter = echarts.init(document.getElementById('chProdScatter'));
+  const sel = document.getElementById('prodYear');
+  sel.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===D.cy?'selected':''}>${y}年</option>`).join('');
+  sel.onchange = () => { renderProdBar(); renderProdScatter(); renderProdTable(); };
+  renderProdBar(); renderProdScatter(); renderProdTable();
+}
+
+function getFilteredProds(sortBy, selY) {
+  const products = D.products || [];
+  const pr = D.prodRevenue || {};
+  const pgpm = D.prodGPMargin || {};
+  const pyoy = D.prodYoY || {};
+  const years = D.years || [];
+  const yi = years.indexOf(selY);
+  const arr = products.map(p => {
+    const rev = pr[p.name] && yi>=0 ? (pr[p.name][yi]||0) : (p.amt/10000||0);
+    return {name:p.name, rev, gpMargin:pgpm[p.name]||0, yoy:pyoy[p.name]!=null?pyoy[p.name]:null};
+  });
+  if (sortBy==='yoy') arr.sort((a,b)=>(b.yoy!=null?b.yoy:-Infinity)-(a.yoy!=null?a.yoy:-Infinity));
+  else if (sortBy==='gp_margin') arr.sort((a,b)=>b.gpMargin-a.gpMargin);
+  else arr.sort((a,b)=>b.rev-a.rev);
+  return arr;
+}
+
+function renderProdBar() {
+  const selY = parseInt(document.getElementById('prodYear').value) || D.cy;
+  const sorted = getFilteredProds('revenue', selY).slice(0,10);
+  const names = sorted.map(p=>p.name), revs = sorted.map(p=>p.rev), yoy = sorted.map(p=>p.yoy);
+  charts.chProdBar.setOption({
+    tooltip:{trigger:'axis'},
+    grid:{left:100,right:30,top:40,bottom:70},
+    xAxis:{type:'category',data:names,axisLabel:{fontSize:10,rotate:45,overflow:'truncate',width:80}},
+    yAxis:{type:'value',name:'万元'},
+    series:[{type:'bar',data:revs,itemStyle:{color:'#5b9bd5',borderRadius:[4,4,0,0]},
+      label:{show:true,position:'top',fontSize:9,color:'#a0a8c0',
+        formatter:p=>yoy[p.dataIndex]!=null?(yoy[p.dataIndex]>0?'+':'')+yoy[p.dataIndex]+'%':''}}]
+  });
+}
+
+function renderProdScatter() {
+  const selY = parseInt(document.getElementById('prodYear').value) || D.cy;
+  const prods = getFilteredProds('revenue', selY).filter(p=>p.gpMargin>=-100&&p.rev>0);
+  const data = prods.map(p=>[p.rev,p.gpMargin,p.rev*(p.gpMargin||0)/100,p.name]);
+  charts.chProdScatter.setOption({
+    tooltip:{trigger:'item',formatter:p=>`<b>${p.data[3]}</b><br/>收入:${p.data[0].toFixed(1)}万<br/>毛利率:${p.data[1]}%`},
+    grid:{left:60,right:30,top:40,bottom:40},
+    xAxis:{type:'value',name:'万元'},yAxis:{type:'value',name:'毛利率%'},
+    series:[{type:'scatter',data,symbolSize:v=>Math.max(6,Math.min(40,Math.sqrt(Math.abs(v[2]||1))*4)),
+      itemStyle:{color:'#5b9bd5',opacity:.7},
+      label:{show:true,position:'right',fontSize:9,color:'#a0a8c0',formatter:p=>p.data[3].length>8?p.data[3].slice(0,8)+'..':p.data[3]}}]
+  });
+}
+
+function renderProdTable() {
+  const selY = parseInt(document.getElementById('prodYear').value) || D.cy;
+  const prods = getFilteredProds('revenue', selY);
+  const thead = '<tr><th>产品</th><th>收入(万)</th><th>同比</th><th>毛利率</th></tr>';
+  const tbody = prods.map(p =>
+    `<tr><td><b>${p.name}</b></td><td>${p.rev.toFixed(1)}</td>
+    <td style="color:${p.yoy>0?'var(--red)':p.yoy<0?'var(--green)':'var(--muted)'}">${p.yoy!=null?(p.yoy>0?'+':'')+p.yoy+'%':'无'}</td>
+    <td>${p.gpMargin}%</td></tr>`
+  ).join('');
+  document.querySelector('#prodTable thead').innerHTML = thead;
+  document.querySelector('#prodTable tbody').innerHTML = tbody;
+}
+
+// ============ DETAIL TAB ============
+function initDetailTab() {
+  const dy = document.getElementById('detailYear');
+  dy.innerHTML = '<option value="all">全部年份</option>' + (D.years||[]).map(y => `<option value="${y}">${y}年</option>`).join('');
+  filterDetail();
+}
+
+function filterDetail() {
+  const q = (document.getElementById('detailSearch').value||'').toLowerCase();
+  const yf = document.getElementById('detailYear').value;
+  let filtered = R;
+  if (yf !== 'all') {
+    const y = parseInt(yf);
+    filtered = filtered.filter(r => (r.y||r.year) === y);
+  }
+  if (q) {
+    filtered = filtered.filter(r => {
+      return Object.values(r).some(v => String(v||'').toLowerCase().includes(q));
+    });
+  }
+  document.getElementById('detailInfo').textContent = `显示 ${filtered.length} / ${R.length} 行`;
+  renderDetailTable(filtered);
+}
+
+function renderDetailTable(rows) {
+  const el = document.getElementById('detailTable');
+  if (!rows.length) { el.innerHTML = '<p style="color:var(--muted);padding:20px">无匹配数据</p>'; return; }
+  const cols = Object.keys(rows[0]);
+  const columns = cols.map(c => ({title:c, field:c, width:120, headerFilter:true}));
+  if (charts._detailTabulator) charts._detailTabulator.destroy();
+  charts._detailTabulator = new Tabulator(el, {
+    data: rows.slice(0, 5000),
+    columns,
+    layout:'fitData',
+    height:500,
+    pagination:true,
+    paginationSize:50,
+  });
+}
+
+// ============ EXPORT ============
+async function doExport(format) {
+  try {
+    await exportReport(format, reportInfo);
+    // Show toast handled by export.js
+  } catch(e) {
+    alert('导出失败: ' + e.message);
+  }
+}
+
+// ============ CLEAR ============
+async function doClear() {
+  if (confirm('确定清除当前报告数据？此操作不可撤销。')) {
+    await clearReport();
+    window.location.href = 'index.html';
+  }
+}
+
+// ============ SAVE TO SERVER ============
+async function doSaveToServer() {
+  try {
+    var btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+
+    var report = await loadReport();
+    if (!report) { alert('没有可保存的数据'); btn.disabled = false; return; }
+
+    var resp = await fetch('/api/reports/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        DATA: report.DATA,
+        detailRows: report.detailRows,
+        reportType: report.reportType,
+        fileNames: report.fileNames,
+        id: report.id,  // 如果是重复保存，更新已有记录
+      }),
+    });
+
+    var json = await resp.json();
+    if (!resp.ok) {
+      alert('保存失败: ' + (json.error || '未知错误'));
+      btn.disabled = false;
+      btn.textContent = '☁ 保存到云端';
+      return;
+    }
+
+    // 更新本地缓存的 ID
+    report.id = json.id;
+    await saveReport(report);
+
+    btn.textContent = '✅ 已保存';
+    setTimeout(function(){ btn.textContent = '☁ 保存到云端'; btn.disabled = false; }, 2000);
+  } catch(e) {
+    alert('保存失败: ' + e.message);
+    if (event && event.target) {
+      event.target.disabled = false;
+      event.target.textContent = '☁ 保存到云端';
+    }
+  }
+}
+
+// ============ PAGE UNLOAD: auto-cleanup ============
+window.addEventListener('beforeunload', () => {
+  // Don't auto-clear on unload — user might just be refreshing
+  // Only clear if explicitly triggered via download
+});
+
+// ============ START ============
+init();
+</script>
+</body>
+</html>

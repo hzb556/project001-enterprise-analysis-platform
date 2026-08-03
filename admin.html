@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台 — 企业运营分析平台</title>
+<link href="css/variables.css" rel="stylesheet">
+<style>
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.topbar .logo{font-size:16px;font-weight:700;color:#fff}
+.btn-back{padding:6px 14px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;text-decoration:none;font-size:13px}
+.btn-back:hover{color:#fff}
+.main{max-width:1000px;margin:0 auto;padding:20px 24px}
+h1{font-size:20px;color:#fff;margin-bottom:6px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#1e1e40;padding:8px 12px;text-align:left;color:var(--muted);font-weight:500}
+td{padding:8px 12px;border-bottom:1px solid var(--border)}
+tr:hover td{background:var(--hover)}
+.mod-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;margin:1px 2px}
+.mod-on{background:#4caf8430;color:var(--green)}
+.mod-off{background:#ff525230;color:var(--red)}
+.btn-sm{padding:4px 12px;border-radius:4px;font-size:11px;cursor:pointer;border:none;font-weight:600}
+.btn-toggle{background:var(--blue);color:#000}
+.btn-danger{background:transparent;color:var(--red);border:1px solid #ff525240}
+select{padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:12px}
+.error{background:#ff525220;color:#ff5252;padding:10px;border-radius:8px;margin-bottom:16px;display:none}
+.unauth{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column}
+.unauth h1{color:#ff5252;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="logo">⚙ 管理后台</span>
+  <a href="index.html" class="btn-back">← 返回主页</a>
+</div>
+<div class="main">
+  <h1>⚙ 用户管理</h1>
+  <p class="subtitle" id="subTitle">加载中...</p>
+  <div class="error" id="errorMsg"></div>
+  <table id="userTable">
+    <thead><tr><th>ID</th><th>邮箱</th><th>角色</th><th>模块权限</th><th>报告用量</th><th>注册时间</th><th>操作</th></tr></thead>
+    <tbody id="userBody"><tr><td colspan="7" style="color:var(--muted);text-align:center">加载中...</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+async function init() {
+  try {
+    var resp = await fetch('/api/auth/me');
+    var me = await resp.json();
+    if (!me.user || me.user.role !== 'admin') {
+      document.querySelector('.main').innerHTML = '<div class="unauth"><h1>需要管理员权限</h1><p style="color:var(--muted)">请用管理员账号登录</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回主页</a></div>';
+      return;
+    }
+    loadUsers();
+  } catch(e) {
+    document.querySelector('.main').innerHTML = '<div class="unauth"><h1>未登录</h1><p style="color:var(--muted)">请先登录</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回</a></div>';
+  }
+}
+
+async function loadUsers() {
+  try {
+    var resp = await fetch('/api/admin/users');
+    if (!resp.ok) throw new Error('权限不足');
+    var users = await resp.json();
+    document.getElementById('subTitle').textContent = '共 ' + users.length + ' 个用户';
+
+    var allModules = ['expense', 'sales'];
+    var modNames = {expense:'费用', sales:'销售'};
+
+    document.getElementById('userBody').innerHTML = users.map(function(u) {
+      var mods = u.enabled_modules || [];
+      var modTags = allModules.map(function(m) {
+        var on = mods.includes(m) || mods.includes('ALL');
+        return '<span class="mod-tag '+(on?'mod-on':'mod-off')+'">'+(on?'✓':'✗')+' '+modNames[m]+'</span>';
+      }).join('');
+      return '<tr>'+
+        '<td>'+u.id+'</td>'+
+        '<td>'+escHtml(u.email)+'</td>'+
+        '<td>'+u.role+'</td>'+
+        '<td>'+modTags+'</td>'+
+        '<td>'+u.reports_used+' / '+(u.max_reports<0?'∞':u.max_reports)+'</td>'+
+        '<td>'+u.created_at+'</td>'+
+        '<td>'+
+          '<select id="mods_'+u.id+'" onchange="updateModules('+u.id+')" style="margin-right:4px">'+
+            '<option value="">模块权限...</option>'+
+            '<option value="ALL">全部开通</option>'+
+            '<option value="expense">仅费用</option>'+
+            '<option value="expense,sales">费用+销售</option>'+
+          '</select>'+
+          '<button class="btn-sm btn-toggle" onclick="toggleUser('+u.id+',\''+u.status+'\')">'+(u.status==='active'?'禁用':'启用')+'</button>'+
+        '</td>'+
+      '</tr>';
+    }).join('');
+  } catch(e) {
+    document.getElementById('errorMsg').textContent = '加载失败: '+e.message;
+    document.getElementById('errorMsg').style.display = 'block';
+  }
+}
+
+async function updateModules(uid) {
+  var sel = document.getElementById('mods_'+uid);
+  var mods = sel.value;
+  if (!mods) return;
+  try {
+    var resp = await fetch('/api/admin/user/'+uid, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled_modules: mods}),
+    });
+    if (resp.ok) loadUsers();
+  } catch(e) {}
+}
+
+async function toggleUser(uid, currentStatus) {
+  var newStatus = currentStatus === 'active' ? 'disabled' : 'active';
+  try {
+    await fetch('/api/admin/user/'+uid, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({status: newStatus}),
+    });
+    loadUsers();
+  } catch(e) {}
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+init();
+</script>
+</body>
+</html>

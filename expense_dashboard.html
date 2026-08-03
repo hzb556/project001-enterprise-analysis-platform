@@ -750,52 +750,31 @@ document.getElementById('diag').innerHTML = D.diagHTML || '<p style="color:var(-
 
 // ---- MAIN ----
 function main(){
-  // Init UI immediately (doesn't need detail rows)
+  // Data already loaded from IndexedDB — no server fetch needed
   popF(); rK();
-  // Show loading overlay
-  document.getElementById('loadOverlay').classList.remove('done');
+  document.getElementById('loadOverlay') && document.getElementById('loadOverlay').classList.add('done');
 
-  // Detail rows already loaded from IndexedDB by init()
-  var startTime = Date.now();
-  Promise.resolve({ok:true, json: function(){return Promise.resolve(R)}})
-    .then(function(resp){
-      if(!resp.ok) throw new Error('HTTP '+resp.status);
-      return resp.json();
-    })
-    .then(function(rows){
-      R = rows;
-      var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log('Loaded '+R.length+' rows in '+elapsed+'s');
-      document.getElementById('loadOverlay').classList.add('done');
+  console.log('[费用看板] 数据就绪: '+R.length+' 行');
 
-      // Init charts (ECharts may load async too)
-      ldE(function(){
-        rC1(); rC2(D.cy); rC3(); rC4(D.cy); rC4b(D.cy);
-      });
+  // Init charts
+  ldE(function(){
+    try { rC1(); rC2(D.cy); rC3(); rC4(D.cy); rC4b(D.cy); } catch(e) { console.warn('图表初始化:', e); }
+  });
 
-      // Init interactive panels
-      setMAUnit('w'); rMA();
-      try{setMA2Unit('w'); rMA2()}catch(e){console.warn('MA2 init error:', e)}
+  // Init interactive panels
+  try { setMAUnit('w'); rMA(); } catch(e) { console.warn('MA init:', e); }
+  try { setMA2Unit('w'); rMA2(); } catch(e) { console.warn('MA2 init:', e); }
 
-      // Init Tabulator table
-      buildExpenseTable();
+  // Init Tabulator table (cap at 50000 rows for performance)
+  setTimeout(function(){ buildExpenseTable(); }, 100);
 
-      // Resize handler
-      window.addEventListener('resize',function(){
+  // Resize handler
+  window.addEventListener('resize',function(){
         for(var k in ci)if(ci[k]&&ci[k].resize)ci[k].resize();
       });
-    })
-    .catch(function(e){
-      document.getElementById('loadOverlay').innerHTML =
-        '<div style="color:var(--red);text-align:center">' +
-        '<p style="font-size:16px;margin-bottom:8px">❌ 数据加载失败</p>' +
-        '<p style="font-size:12px;color:var(--muted)">'+e.message+'</p>' +
-        '<p style="margin-top:12px"><a href="/" style="color:var(--blue);font-size:12px">⬅ 返回重新上传</a></p>' +
-        '</div>';
-    });
 }
 
-// main() called by init() after loading data from IndexedDB
+// main() closes here
 }
 
 // Export functions

@@ -326,6 +326,7 @@ var __R = [];
     document.getElementById('topName').textContent = (r.fileNames||['-']).join(', ');
   }
   main();
+  startCharts();
 })();
 let R = [];
 let filteredR = [];
@@ -2221,12 +2222,16 @@ function exportCSV() {
 
 var __embeddedRows = null;
 var __exportMode = false;
-renderKPI(D.cy);
-populateYearFilter();
-initCharts();
-renderYearly();
-renderMonthly();
-renderSunbursts();
+// These now run inside init() after IndexedDB loads D
+function startCharts(){
+  if (!D.cy) return;
+  renderKPI(D.cy);
+  populateYearFilter();
+  initCharts();
+  renderYearly();
+  renderMonthly();
+  renderSunbursts();
+}
 setTimeout(function(){ document.getElementById('diagBox').innerHTML = D.diagHTML || ''; }, 1000);
 
 

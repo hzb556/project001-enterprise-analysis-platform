@@ -252,9 +252,13 @@ var D = {}, R = [], REPORT_ID = '', __exportMode = false;
       document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">没有报告数据</h1><p style="color:var(--muted)">请先上传文件进行分析</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回上传页面</a></div>';
       return;
     }
-    D = report.DATA;
+    D = report.DATA || {};
     R = report.detailRows || [];
     REPORT_ID = report.id || '';
+    if (!Object.keys(D).length && !R.length) {
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column"><h1 style="color:#ff5252">报告数据为空</h1><p style="color:var(--muted)">分析结果中没有数据。请返回重新上传文件。</p><a href="index.html" style="color:var(--blue);margin-top:16px">← 返回上传页面</a></div>';
+      return;
+    }
     document.getElementById('lblReportId').textContent = REPORT_ID;
     document.getElementById('topReportName').textContent = (report.fileNames||['-']).join(', ');
     main();

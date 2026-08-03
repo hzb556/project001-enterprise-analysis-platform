@@ -67,6 +67,15 @@ def create_app(config=None):
     def static_files(path):
         return send_from_directory('..', path)
 
+    # ---- 禁止缓存 HTML（开发阶段每次刷新拿到最新代码）----
+    @app.after_request
+    def _no_cache_html(response):
+        if response.content_type and 'text/html' in response.content_type:
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        return response
+
     # ================================================================
     # 认证 API
     # ================================================================

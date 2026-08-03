@@ -617,32 +617,37 @@ async function startAnalysis(){
 }
 
 async function saveAndGo(result){
-  // Always save to IndexedDB first
-  await saveReport({
-    DATA: result.DATA,
-    detailRows: result.detailRows,
+  // 验证分析结果有效性
+  var DATA = result.DATA;
+  var rows = result.detailRows;
+  if (!DATA || !Object.keys(DATA).length || !(DATA.years||[]).length || !rows || !rows.length) {
+    hideLoading(); processingShow = false;
+    var detail = '分析未产生有效数据。可能原因：\n• 文件格式与所选模块不匹配\n• 缺少必需的列（年份/月份/科目/部门/金额等）\n• 所有数据行均被过滤（日期或金额无效）\n\n请检查文件内容，或尝试另一个模块。';
+    showError(detail.replace(/\n/g, '<br>'));
+    return;
+  }
+
+  var reportData = {
+    DATA: DATA,
+    detailRows: rows,
     reportType: currentModule,
     fileNames: selectedFiles.map(function(f){return f.name}),
-  });
+  };
+
+  // Save to IndexedDB
+  await saveReport(reportData);
 
   // Ask if user wants to save to server
   hideLoading();
   var choice = await new Promise(function(resolve){
-    // Small delay to let loading overlay hide
     setTimeout(function(){
-      resolve(confirm('✅ 分析完成！\n\n是否保存报告到云端？\n• 保存后可在历史记录中随时查看和打开\n• 报告仅包含汇总数据，不含原始文件\n\n（选择"取消"可仅本次查看，关闭页面后清空）'));
+      resolve(confirm('✅ 分析完成！共 '+rows.length+' 行数据\n\n是否保存报告到云端？\n• 保存后可在历史记录中随时查看和打开\n• 报告仅包含汇总数据，不含原始文件\n\n（选择"取消"可仅本次查看，关闭页面后清空）'));
     }, 300);
   });
 
   if (choice) {
     showLoading('正在保存到云端...');
     try {
-      var reportData = {
-        DATA: result.DATA,
-        detailRows: result.detailRows,
-        reportType: currentModule,
-        fileNames: selectedFiles.map(function(f){return f.name}),
-      };
       var resp = await fetch(API_BASE + '/api/reports/save', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},

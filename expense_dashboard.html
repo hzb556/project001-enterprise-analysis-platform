@@ -738,7 +738,8 @@ function expCSV(){
 }
 
 // ---- DIAGNOSTICS ----
-document.getElementById('diag').innerHTML = D.diagHTML || '<p style="color:var(--muted)">诊断数据未加载</p>';
+// Delayed: data loads from IndexedDB asynchronously
+setTimeout(function(){ document.getElementById('diag').innerHTML = D.diagHTML || '<p style="color:var(--muted)">诊断数据未加载</p>'; }, 1000);
 
 // ---- MAIN ----
 function main(){

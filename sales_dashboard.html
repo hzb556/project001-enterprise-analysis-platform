@@ -2227,7 +2227,7 @@ initCharts();
 renderYearly();
 renderMonthly();
 renderSunbursts();
-document.getElementById('diagBox').innerHTML = D.diagHTML || '';
+setTimeout(function(){ document.getElementById('diagBox').innerHTML = D.diagHTML || ''; }, 1000);
 
 
 // ---- Sankey Click to Show Customer Detail ----

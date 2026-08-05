@@ -694,8 +694,9 @@ function setMA2Unit(u){mA2_unit=u;document.getElementById('mA2_uW').className=(u
 function toggleMA2Diff(){mA2_diff=!mA2_diff;var b=document.getElementById('mA2_diffBtn');if(mA2_diff){b.textContent='📊 差值模式(开)';b.style.background='var(--green)';b.style.color='#fff'}else{b.textContent='📊 显示差值';b.style.background='var(--orange)';b.style.color='#000'}rMA2()}
 
 // ---- TABLE ----
-function onFlt(){
-  if(!expenseTable||R.length===0)return;
+var _pendingFilter = null;
+function _applyFilter(){
+  if(!expenseTable||R.length===0){ _pendingFilter=true; return; }
   var yf=document.getElementById('yf').value,sr=document.getElementById('srch').value.toLowerCase();
   var rows=R.filter(function(r){
     if(yf!=='all'&&r.y!==parseInt(yf))return false;
@@ -703,10 +704,11 @@ function onFlt(){
     return true;
   });
   expenseTable.setData(rows);
+  _pendingFilter = null;
 }
-// Table filter controls — rebuild with filters
+function onFlt(){ _applyFilter(); }
 function rT(){
-  if(!expenseTable||R.length===0)return;
+  if(!expenseTable||R.length===0){ _pendingFilter=true; return; }
   var ty=document.getElementById('ty').value,tm=document.getElementById('tm').value;
   var ts=document.getElementById('ts').value,td=document.getElementById('td').value;
   var tq=(document.getElementById('tq').value||'').toLowerCase();
@@ -790,6 +792,7 @@ function main(){
 
       // Init Tabulator table
       buildExpenseTable();
+      if(_pendingFilter){ setTimeout(function(){ _applyFilter(); }, 300); }
 
       // Resize handler
       window.addEventListener('resize',function(){

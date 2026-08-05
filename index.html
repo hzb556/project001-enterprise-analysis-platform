@@ -233,7 +233,10 @@ a:hover{text-decoration:underline}
     <div class="cache-notice" id="cacheNotice">
       <div class="cn-row">
         <span>📋 有一个未下载的报告缓存</span>
-        <span><a href="dashboard.html" style="font-weight:600">查看报告 →</a></span>
+        <span>
+          <a href="expense_dashboard.html" id="cacheLink" style="font-weight:600">查看报告 →</a>
+          <button onclick="clearCacheNotice()" style="margin-left:8px;background:transparent;color:var(--red);border:1px solid #ff525240;border-radius:4px;cursor:pointer;font-size:11px;padding:3px 8px">✕ 清除</button>
+        </span>
       </div>
     </div>
 
@@ -511,9 +514,15 @@ async function checkCache() {
   var notice = document.getElementById('cacheNotice');
   if (info) {
     notice.classList.add('show');
+    var link = document.getElementById('cacheLink');
+    if (link) link.href = (info.reportType === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
   } else {
     notice.classList.remove('show');
   }
+}
+async function clearCacheNotice(){
+  await clearReport();
+  document.getElementById('cacheNotice').classList.remove('show');
 }
 
 // ============ FILE HANDLING ============

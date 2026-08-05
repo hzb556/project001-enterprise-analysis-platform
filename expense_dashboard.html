@@ -695,12 +695,14 @@ function toggleMA2Diff(){mA2_diff=!mA2_diff;var b=document.getElementById('mA2_d
 
 // ---- TABLE ----
 function onFlt(){
-  if(R.length===0)return;
-  var filters=[];
+  if(!expenseTable||R.length===0)return;
   var yf=document.getElementById('yf').value,sr=document.getElementById('srch').value.toLowerCase();
-  if(yf!=='all') filters.push({field:'y',type:'=',value:parseInt(yf)});
-  if(sr) filters.push([{field:'summ',type:'like',value:sr},{field:'cat',type:'like',value:sr}]);
-  if(expenseTable){ expenseTable.setFilter(filters.length?filters:null); }
+  var rows=R.filter(function(r){
+    if(yf!=='all'&&r.y!==parseInt(yf))return false;
+    if(sr&&r.summ.toLowerCase().indexOf(sr)===-1&&r.cat.toLowerCase().indexOf(sr)===-1)return false;
+    return true;
+  });
+  expenseTable.setData(rows);
 }
 // Table filter controls — rebuild with filters
 function rT(){

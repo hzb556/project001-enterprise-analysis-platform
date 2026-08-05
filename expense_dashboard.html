@@ -695,12 +695,12 @@ function toggleMA2Diff(){mA2_diff=!mA2_diff;var b=document.getElementById('mA2_d
 
 // ---- TABLE ----
 function onFlt(){
-  if(!expenseTable||R.length===0)return;
-  var yf=document.getElementById('yf').value,sr=document.getElementById('srch').value.toLowerCase();
+  if(R.length===0)return;
   var filters=[];
+  var yf=document.getElementById('yf').value,sr=document.getElementById('srch').value.toLowerCase();
   if(yf!=='all') filters.push({field:'y',type:'=',value:parseInt(yf)});
   if(sr) filters.push([{field:'summ',type:'like',value:sr},{field:'cat',type:'like',value:sr}]);
-  expenseTable.setFilter(filters.length?filters:null);
+  if(expenseTable){ expenseTable.setFilter(filters.length?filters:null); }
 }
 function sT(key){if(expenseTable){var s=expenseTable.getSorters();var d='desc';if(s.length&&s[0].column===key)d=s[0].dir==='desc'?'asc':'desc';expenseTable.setSort(key,d);}}
 // ---- TABULATOR Table ----

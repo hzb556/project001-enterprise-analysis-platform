@@ -657,6 +657,7 @@ async function salesProcessExcelFiles(fileList, columnMapping) {
     const result = await readExcelFile(file);
     headers = result.headers;
     rawRows = result.rows;
+    if (result.sheetInfo) allWarnings.push('Sheet: ' + result.sheetInfo);
 
     if (fi === 0) {
       detectResult = columnMapping

@@ -145,8 +145,13 @@ async function readWithCalamine(file) {
     if (!sheet || sheet.rows.length === 0) {
         throw new Error('文件中没有数据');
     }
+    // Build sheet info for diagnostics
+    var sheetInfo = sheetNames.map(function(n, i){
+      var s = workbook.get_sheet_by_index(i);
+      return { name: n, rows: s && s.rows ? s.rows.length : 0 };
+    }).join(', ');
     if (sheetNames.length > 1) {
-      console.log('[Excel] 选择了数据最多的 sheet: ' + sheet.name + ' (' + sheet.rows.length + ' 行)，共 ' + sheetNames.length + ' 个 sheet');
+      console.log('[Excel] 选择了数据最多的 sheet: ' + sheet.name + ' (' + sheet.rows.length + ' 行)，共 ' + sheetNames.length + ' 个 sheet: ' + sheetInfo);
     }
 
     // sheet.rows is an array of arrays of CellValue objects
@@ -154,6 +159,7 @@ async function readWithCalamine(file) {
 
     // Convert first row to headers
     const headers = (rawRows[0] || []).map(cv => cellValueToString(cv));
+    console.log('[Excel] Headers: ' + JSON.stringify(headers));
     const rows = [];
 
     for (let i = 1; i < rawRows.length; i++) {
@@ -165,7 +171,7 @@ async function readWithCalamine(file) {
         rows.push(row);
     }
 
-    return { headers, rows, sheetName: sheet.name || 'Sheet1' };
+    return { headers, rows, sheetName: sheet.name || 'Sheet1', sheetInfo: sheetInfo };
 }
 
 /**

@@ -702,6 +702,22 @@ function onFlt(){
   if(sr) filters.push([{field:'summ',type:'like',value:sr},{field:'cat',type:'like',value:sr}]);
   if(expenseTable){ expenseTable.setFilter(filters.length?filters:null); }
 }
+// Table filter controls — rebuild with filters
+function rT(){
+  if(!expenseTable||R.length===0)return;
+  var ty=document.getElementById('ty').value,tm=document.getElementById('tm').value;
+  var ts=document.getElementById('ts').value,td=document.getElementById('td').value;
+  var tq=(document.getElementById('tq').value||'').toLowerCase();
+  var rows=R.filter(function(r){
+    if(ty!=='all'&&r.y!==parseInt(ty))return false;
+    if(tm!=='all'&&r.m!==parseInt(tm))return false;
+    if(ts!=='all'&&r.sn!==ts)return false;
+    if(td!=='all'&&r.did!==td)return false;
+    if(tq&&r.summ.toLowerCase().indexOf(tq)===-1&&r.cat.toLowerCase().indexOf(tq)===-1)return false;
+    return true;
+  });
+  expenseTable.setData(rows);
+}
 function sT(key){if(expenseTable){var s=expenseTable.getSorters();var d='desc';if(s.length&&s[0].column===key)d=s[0].dir==='desc'?'asc':'desc';expenseTable.setSort(key,d);}}
 // ---- TABULATOR Table ----
 var expenseTable = null;

@@ -148,7 +148,7 @@ async function readWithCalamine(file) {
     // Build sheet info for diagnostics
     var sheetInfo = sheetNames.map(function(n, i){
       var s = workbook.get_sheet_by_index(i);
-      return { name: n, rows: s && s.rows ? s.rows.length : 0 };
+      return n + '(' + (s && s.rows ? s.rows.length : 0) + '行)';
     }).join(', ');
     if (sheetNames.length > 1) {
       console.log('[Excel] 选择了数据最多的 sheet: ' + sheet.name + ' (' + sheet.rows.length + ' 行)，共 ' + sheetNames.length + ' 个 sheet: ' + sheetInfo);

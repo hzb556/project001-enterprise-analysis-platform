@@ -663,8 +663,9 @@ async function saveAndGo(result){
   hideLoading();
   var choice = await new Promise(function(resolve){
     setTimeout(function(){
-      var warnMsg = (result.warnings||[]).length ? '\n\n📋 文件信息:\n'+result.warnings.slice(0,5).join('\n') : '';
-      resolve(confirm('✅ 分析完成！共 '+rows.length+' 行数据'+warnMsg+'\n\n是否保存报告到云端？\n• 保存后可在历史记录中随时查看和打开\n• 报告仅包含汇总数据，不含原始文件\n\n（选择"取消"可仅本次查看，关闭页面后清空）'));
+      var warnMsg = (result.warnings||[]).length ? '\n\n📋 文件信息:\n'+result.warnings.slice(0,8).join('\n') : '';
+      var mapMsg = result.mapping ? '\n\n🔧 列映射:\n'+JSON.stringify(result.mapping).replace(/,/g,'\n').replace(/[{}"]/g,'').replace(/:/g,': ') : '';
+      resolve(confirm('✅ 分析完成！共 '+rows.length+' 行数据'+warnMsg+mapMsg+'\n\n是否保存报告到云端？\n• 保存后可在历史记录中随时查看和打开\n• 报告仅包含汇总数据，不含原始文件\n\n（选择"取消"可仅本次查看，关闭页面后清空）'));
     }, 300);
   });
 

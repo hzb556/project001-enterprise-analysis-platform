@@ -540,7 +540,8 @@ async function expenseProcessExcelFiles(fileList, columnMapping) {
     const result = await readExcelFile(file);
     headers = result.headers;
     rawRows = result.rows;
-    if (result.sheetInfo) allWarnings.push('Sheet: ' + result.sheetInfo);
+    if (result.sheetInfo) allWarnings.push('Sheets: ' + result.sheetInfo);
+    allWarnings.push('Headers: ' + headers.slice(0,12).join(', '));
 
     if (fi === 0) {
       if (columnMapping) {

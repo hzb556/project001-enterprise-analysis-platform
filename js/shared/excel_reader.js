@@ -130,10 +130,23 @@ async function readWithCalamine(file) {
 
     // calaminejs API: Workbook.from_bytes()
     const workbook = mod.Workbook.from_bytes(bytes);
-    const sheet = workbook.get_sheet_by_index(0);
+    // Pick the sheet with the most rows (not just index 0)
+    const sheetNames = workbook.sheet_names();
+    let bestSheet = null, bestRows = 0;
+    for (let i = 0; i < sheetNames.length; i++) {
+      const s = workbook.get_sheet_by_index(i);
+      if (s && s.rows && s.rows.length > bestRows) {
+        bestRows = s.rows.length;
+        bestSheet = s;
+      }
+    }
+    const sheet = bestSheet;
 
     if (!sheet || sheet.rows.length === 0) {
         throw new Error('文件中没有数据');
+    }
+    if (sheetNames.length > 1) {
+      console.log('[Excel] 选择了数据最多的 sheet: ' + sheet.name + ' (' + sheet.rows.length + ' 行)，共 ' + sheetNames.length + ' 个 sheet');
     }
 
     // sheet.rows is an array of arrays of CellValue objects

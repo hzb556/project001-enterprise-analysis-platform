@@ -25,7 +25,15 @@ function expenseValidateAndClean(rows, mapping) {
 
     // If date column exists and year/month missing, extract from date
     if (r.date != null && (!r.year || !r.month)) {
-      const parsed = parseDate(r.date);
+      var parsed = parseDate(r.date);
+      if ((!parsed.year || !parsed.month) && typeof r.date === 'number' && r.date > 30000 && r.date < 100000) {
+        var d = new Date((r.date - 25569) * 86400 * 1000);
+        parsed = { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
+      }
+      if ((!parsed.year || !parsed.month) && typeof r.date === 'string') {
+        var m = r.date.match(/(\d{4})/); if (m) parsed.year = parseInt(m[1]);
+        m = r.date.match(/[\/\-\.](\d{1,2})[\/\-\.]/); if (m) parsed.month = parseInt(m[1]);
+      }
       if (parsed.year && !r.year) r.year = parsed.year;
       if (parsed.month && !r.month) r.month = parsed.month;
     }

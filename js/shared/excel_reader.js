@@ -201,10 +201,13 @@ function cellValueToAny(cv) {
     try {
         if (typeof cv === 'string' || typeof cv === 'number' || typeof cv === 'boolean') return cv;
         if (cv.is_empty) return null;
-        // DateTime: return Excel serial number for parseDate() to handle
+        // DateTime: always return numeric serial number for parseDate()
         if (cv.is_datetime) {
-            try { return cv.to_float_value(); } catch(e) {}
-            return cv.to_string_value();
+            var f = cv.to_float_value();
+            if (f != null) return f;
+            var s = cv.to_string_value();
+            if (s != null) { var n = parseFloat(s); if (!isNaN(n) && n > 30000) return n; return s; }
+            return null;
         }
         if (cv.is_float) return cv.to_float_value();
         if (cv.is_int) { const v = cv.to_int_value(); return v != null ? Number(v) : null; }

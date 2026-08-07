@@ -671,6 +671,12 @@ async function salesProcessExcelFiles(fileList, columnMapping) {
     rawRows = result.rows;
     if (result.sheetInfo) allWarnings.push('Sheets: ' + result.sheetInfo);
     allWarnings.push('Headers: ' + headers.slice(0,15).join(', '));
+    // Diagnostic: dump first data row raw values
+    if (rawRows.length > 0) {
+      var sample = {};
+      Object.keys(rawRows[0]).slice(0,8).forEach(function(k){ sample[k] = String(rawRows[0][k]).substring(0,40); });
+      allWarnings.push('Row1: ' + JSON.stringify(sample));
+    }
 
     if (fi === 0) {
       detectResult = columnMapping

@@ -552,6 +552,8 @@ async function expenseProcessExcelFiles(fileList, columnMapping) {
     }
 
     const { cleaned, warnings } = expenseValidateAndClean(rawRows, detectResult.mapping);
+    var filtered = rawRows.length - cleaned.length;
+    if (filtered > 0) allWarnings.push('文件'+(fi+1)+' ('+file.name+'): 过滤掉 '+filtered+' 行，保留 '+cleaned.length+' 行');
     allRows.push(...cleaned);
     if (warnings.length > 0) allWarnings.push('文件'+(fi+1)+' ('+file.name+'): '+warnings.join('; '));
   }

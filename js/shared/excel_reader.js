@@ -201,11 +201,15 @@ function cellValueToAny(cv) {
     try {
         if (typeof cv === 'string' || typeof cv === 'number' || typeof cv === 'boolean') return cv;
         if (cv.is_empty) return null;
+        // DateTime: return Excel serial number for parseDate() to handle
+        if (cv.is_datetime) {
+            try { return cv.to_float_value(); } catch(e) {}
+            return cv.to_string_value();
+        }
         if (cv.is_float) return cv.to_float_value();
         if (cv.is_int) { const v = cv.to_int_value(); return v != null ? Number(v) : null; }
         if (cv.is_bool) return cv.to_bool_value();
         if (cv.is_string) return cv.to_string_value();
-        // Fallback
         return cv.to_string_value() || cv.to_float_value() || (cv.to_int_value() != null ? Number(cv.to_int_value()) : null);
     } catch(e) {
         return null;

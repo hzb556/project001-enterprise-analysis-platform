@@ -219,6 +219,7 @@ def create_app(config=None):
     @login_required
     def api_upload_large():
         """服务端处理超大 Excel 文件（商用版不启用此接口）"""
+        app.logger.warning('[upload-large] Request received, content-length: %s', request.content_length)
         can, msg = current_user.can_create_report()
         if not can:
             return jsonify({'error': msg}), 403
@@ -226,6 +227,7 @@ def create_app(config=None):
         file = request.files.get('file')
         if not file:
             return jsonify({'error': '未选择文件'}), 400
+        app.logger.warning('[upload-large] File: %s, size: %s', file.filename, request.content_length)
 
         ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
         if ext not in ('xlsx', 'xls'):

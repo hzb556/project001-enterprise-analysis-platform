@@ -287,6 +287,11 @@ def create_app(config=None):
 
             # Validate & process
             df, warnings = validate_and_clean_data(df)
+            # Hard fallback: if year/month still missing, force extraction from date
+            if 'year' not in df.columns and 'date' in df.columns:
+                df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
+                df['year'] = df['date_dt'].dt.year
+                df['month'] = df['date_dt'].dt.month
             if 'year' not in df.columns or 'month' not in df.columns:
                 return jsonify({'error': '无法识别年份/月份列。文件表头: ' + ', '.join(str(c) for c in df.columns[:15]) + '。请确保包含"日期"列或单独的"年份""月份"列。'}), 400
             DATA, detail_rows = process_dataframe(df)

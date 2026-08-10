@@ -298,9 +298,16 @@ def create_app(config=None):
                 return jsonify({'error': '无有效数据。原始表头: '+', '.join(raw_cols[:15])+'。重命名后: '+', '.join([str(c) for c in df.columns[:15]])}), 400
             DATA, detail_rows = process_dataframe(df)
 
+            import math
             from shared.encoder import NpEncoder
-            DATA = json.loads(json.dumps(DATA, ensure_ascii=False, cls=NpEncoder))
-            detail_rows = json.loads(json.dumps(detail_rows, ensure_ascii=False, cls=NpEncoder))
+            # Replace NaN/Infinity with None (valid JSON)
+            def clean_nan(obj):
+                if isinstance(obj, dict): return {k: clean_nan(v) for k,v in obj.items()}
+                if isinstance(obj, list): return [clean_nan(v) for v in obj]
+                if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)): return None
+                return obj
+            DATA = clean_nan(json.loads(json.dumps(DATA, ensure_ascii=False, cls=NpEncoder)))
+            detail_rows = clean_nan(json.loads(json.dumps(detail_rows, ensure_ascii=False, cls=NpEncoder)))
 
             return jsonify({
                 'ok': True,

@@ -1,101 +1,82 @@
 # 企业运营分析平台
 
 > **独立仓库**：[project001-enterprise-analysis-platform](https://github.com/hzb556/project001-enterprise-analysis-platform)
-> **创建日期**：2026-07-16（接入工厂日期）
-> **原始创建**：2026-05（v1.0.0）
-> **当前版本**：v1.5.1
-> **项目状态**：🟢 活跃
+> **工厂位置**：`projects/1-active/project001-enterprise-analysis-platform/`（Git Submodule）
+> **当前版本**：v8.1（纯前端 + 轻量后端）
+> **项目状态**：🟢 活跃开发
 
 ---
 
-## 项目名称
+## 架构
 
-**企业运营分析平台** — 企业财务数据深度诊断与销售分析 SaaS 平台
+```
+≤50MB 文件                             >50MB 文件（内部版）
+浏览器处理                              服务端 pandas 处理
+┌────────────────────┐                 ┌─────────────────────┐
+│ SheetJS/calamine   │                 │ 上传 → 分析 → 删文件  │
+│ 列检测 → 映射确认   │    ← API →     │ 列映射 → pandas     │
+│ 本地分析 + 渲染     │                 │ 仅保留汇总结果       │
+└────────────────────┘                 └─────────────────────┘
+```
 
-## 一句话描述
+## 文件大小策略
 
-用户上传 Excel 财务/销售数据 → 系统自动生成包含图表、诊断结论、明细表的完整分析报告。
+| 大小 | 引擎 | 方式 |
+|------|------|------|
+| ≤50MB | SheetJS（xlsx）/ calamine（xls） | 浏览器 |
+| >50MB | Python pandas | 服务端（内部版）/ 提示拆分（商用版） |
 
-## 项目目标
+开关：`js/shared/config.js` → `enableLargeFileServer` → `true`=内部版 / `false`=商用版
 
-为中小企业提供零门槛的自助式商业智能（BI）工具，把"需要 Excel 高手 + 财务背景 + 一整天时间"的数据分析工作，变成"上传文件 → 3 分钟出报告"。
+## 三段式列映射流程
+
+```
+① 读表头（1KB，秒级）→ ② 列检测 + 用户确认映射 → ③ 按映射处理
+```
+不管文件大小，始终先做列检测。用户可在映射窗口手动修正错误的自动匹配。
 
 ## 技术栈
 
 | 层 | 技术 |
 |---|------|
-| 后端 | Python 3.12 + Flask + SQLAlchemy + pandas + numpy |
-| 前端 | ECharts 5.5 + Vanilla JS + Jinja2 模板 |
-| 数据库 | SQLite（app.db, ~56MB, 可迁移 PostgreSQL） |
-| 部署 | Docker + Gunicorn + Nginx |
-| Excel | openpyxl（服务端）+ SheetJS/xlsx（浏览器端） |
+| 前端 | Vanilla JS + ECharts 5.5 + Tabulator 6.3 |
+| Excel 读取 | SheetJS（xlsx）+ calamine WASM（xls） |
+| 后端 | Python Flask + SQLAlchemy（轻量，只管认证+存储） |
+| 数据库 | SQLite |
+| 大文件 | Python pandas + openpyxl（服务端） |
 
-## 主要模块
+## 模块
 
-### 模块 A：费用分析（expense）
-- KPI 仪表盘（总费用/同比/环比/科目占比）
-- 年度对比柱状图 + 月度趋势折线图
-- 科目 × 部门热力图
-- 科目层级旭日图（双向可钻取）
-- 异常检测（环比波动 >30%、IQR 离群值、变异系数）
-- 固定/变动成本分类、CAGR、结构偏移分析
-- 诊断报告自动生成
+### 费用分析
+- KPI 仪表盘 + 年度/月度趋势 + 科目×部门热力图 + 旭日图
+- 异常检测、固定/变动成本、CAGR、诊断报告
 
-### 模块 B：销售分析（sales）
-- 8 个分析 Tab：总览 / 客户 / 产品 / 品类 / 部门 / 业务员 / 品牌 / 明细
-- 客户 ABC 分层 + 流失预警 + 新增追踪
-- 产品排名 + 毛利率矩阵 + 生命周期
-- 收入/毛利/客户数 KPI 卡片（均带同比）
-- 诊断报告自动生成
+### 销售分析
+- 8 Tab：总览/客户/产品/品类/部门/业务员/品牌/明细
+- 客户 ABC 分层、流失预警、产品生命周期、帕累托、桑基图
 
-### 模块 C：用户与安全系统
-- 邮箱注册/登录 + 套餐分级（免费/基础/专业/内部）
-- RBAC 三级角色（admin/manager/user）
-- 模块权限控制
-- 审计日志（8种事件类型，自动脱敏）
-- CSRF 防护（HMAC-SHA256）
-- Session 安全（HttpOnly + SameSite + 强制改密）
+## 编码规范
 
-## 目录结构
+1. **JS 全局函数加模块前缀**：expense 和 sales 的 `validateAndClean`/`processData`/`processExcelFiles`/`mergeFiles` 必须加 `expense*`/`sales*` 前缀，避免覆盖
+2. **异步数据加载**：所有依赖 `D`/`R` 的初始化代码放在 `init()` 的 `await loadReport()` 之后，不可在顶层直接访问
+3. **Tabulator 时序**：过滤器函数在表未就绪时静默失败，需用 `_pendingFilter` 延迟重试
+4. **大文件栈溢出**：`[...new Set()]` 改用 `Array.from(new Set())`；递归改迭代+setTimeout
+5. **日期解析**：calamine 返回的日期可能是字符串 `"45777"` 而非数字，需 parseFloat 转换
+6. **修改超过 3 轮未解决** → 从 Git 恢复原版重做，避免手工修补累积错误
 
+## 调试工具
+
+Intent Browser（灵犀页镜）：`D:/AI项目/intent-browser/`
+```bash
+node bin/intent-browser.js http://localhost:5000 --port 17345
 ```
-enterprise-analysis-platform/
-├── project.md                    # 本文件
-├── CHANGELOG.md                  # 工厂级变更日志
-├── src/                          # 源代码
-│   ├── app.py                    #   Flask 应用工厂 (677行)
-│   ├── config.py                 #   多环境配置
-│   ├── models.py                 #   数据模型 (User/Report/AuditLog)
-│   ├── security.py               #   安全模块 (RBAC+CSRF+审计)
-│   ├── wsgi.py                   #   Gunicorn 入口
-│   ├── processor.py              #   向后兼容重导出
-│   ├── requirements.txt          #   依赖清单
-│   ├── modules/                  #   业务模块
-│   │   ├── expense/              #     费用分析模块
-│   │   └── sales/                #     销售分析模块
-│   ├── shared/                   #   共享工具
-│   ├── templates/                #   Jinja2 模板 (18个)
-│   └── static/                   #   静态资源 (JS)
-├── tests/                        # 测试代码 (7文件, 49用例)
-├── docs/                         # 项目文档
-├── deploy/                       # 部署配置
-└── .claude/                      # AI Agent 配置
-    └── project.md                #   项目级 AI 规则
-```
+启动时加 `--disable-http-cache` 避免缓存干扰。
 
-## 当前版本
+## 版本历史
 
-**v1.5.1**（2026-07-16）
-
-- 费用分析：完整（KPI + 图表 + 异常检测 + 诊断 + 导出）
-- 销售分析：完整（8 页签全部完成，含下钻）
-- 用户系统：完整（注册/登录/权限/套餐/管理后台）
-- 安全架构：完整（RBAC + 审计日志 + CSRF + Session 加固）
-- 部署方案：完整（Docker + Gunicorn + Nginx）
-- 测试覆盖：7 文件 49 用例
-
-## 接入工厂历史
-
-| 日期 | 事件 |
-|------|------|
-| 2026-07-16 | 项目001接入 AI_FACTORY，归档至 `projects/enterprise-analysis-platform/` |
+| 日期 | 版本 | 变更 |
+|------|------|------|
+| 2026-08-10 | v8.1 | 大文件服务端处理、三段式列映射、NaN/ym/gross_profit 修复 |
+| 2026-08-03 | v8.0 | 纯前端化 + 轻量 Flask + Submodule 独立仓库 |
+| 2026-07-27 | v7.0 | SaaS 商业版（Flask 全栈） |
+| 2026-07-16 | v1.5.1 | 接入 AI_FACTORY |

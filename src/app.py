@@ -284,6 +284,7 @@ def create_app(config=None):
             else: df['cost'] = pd.to_numeric(df['cost'], errors='coerce').fillna(0)
             if 'quantity' not in df.columns: df['quantity'] = 0
             if 'unit_price' not in df.columns: df['unit_price'] = 0
+            df['gross_profit'] = df['amount'] - df['cost']
             # If year/month still missing after all attempts, create dummy columns
             if 'year' not in df.columns: df['year'] = 2024
             if 'month' not in df.columns: df['month'] = 1

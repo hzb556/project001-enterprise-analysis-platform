@@ -275,6 +275,9 @@ def create_app(config=None):
             else: df['cost'] = pd.to_numeric(df['cost'], errors='coerce').fillna(0)
             if 'quantity' not in df.columns: df['quantity'] = 0
             if 'unit_price' not in df.columns: df['unit_price'] = 0
+            # If year/month still missing after all attempts, create dummy columns
+            if 'year' not in df.columns: df['year'] = 2024
+            if 'month' not in df.columns: df['month'] = 1
             if 'year' in df.columns and 'month' in df.columns: df = df[(df['year']>=2000)&(df['year']<=2100)&(df['month']>=1)&(df['month']<=12)]
             if len(df) == 0:
                 raw_cols = [str(c).strip() for c in (pd_read_excel(tmp_path).columns if 'pd' in dir() else df.columns)]

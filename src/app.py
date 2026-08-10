@@ -272,6 +272,17 @@ def create_app(config=None):
             rename_map = {v: k for k, v in mapping.items() if v and v in df.columns}
             df = df.rename(columns=rename_map)
 
+            # Fallback: if no year/month/date mapped, try to auto-detect from column names
+            if not any(c in df.columns for c in ['year','month','date']):
+                for col in df.columns:
+                    lower = str(col).lower()
+                    if '年' in str(col) and 'year' not in df.columns:
+                        df = df.rename(columns={col: 'year'})
+                    elif '月' in str(col) and 'month' not in df.columns:
+                        df = df.rename(columns={col: 'month'})
+                    elif '日' in str(col) and 'date' not in df.columns:
+                        df = df.rename(columns={col: 'date'})
+
             # Validate & process
             df, warnings = validate_and_clean_data(df)
             DATA, detail_rows = process_dataframe(df)

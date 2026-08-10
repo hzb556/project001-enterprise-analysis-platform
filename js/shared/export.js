@@ -56,53 +56,30 @@ async function exportReport(format, report) {
     showDownloadToast(format, filename);
 }
 
-// ---- HTML 导出（原样导出页面 DOM）----
+// ---- HTML 导出（整个页面原样保存）----
 
 function buildHTML(DATA, rows, reportType, fileNames) {
-    // Clone the current page, remove interactive elements, export full HTML
     var clone = document.documentElement.cloneNode(true);
 
-    // Remove topbar buttons, modals, overlays
-    var toRemove = clone.querySelectorAll('.topbar .actions, .mapping-modal, .load-overlay, .loading-bar-wrap, .topbar button, .topbar a[href]');
-    toRemove.forEach(function(el){ el.parentNode.removeChild(el); });
+    // Only remove the topbar action buttons (export/save/clear), keep everything else
+    var topbar = clone.querySelector('.topbar');
+    if (topbar) {
+        var actions = topbar.querySelectorAll('a, button');
+        actions.forEach(function(el){
+            var txt = el.textContent || '';
+            if (txt.includes('导出') || txt.includes('保存') || txt.includes('清除') || txt.includes('返回')) {
+                el.parentNode.removeChild(el);
+            }
+        });
+    }
 
-    // Remove export/save/clear buttons in dashboard
-    var btns = clone.querySelectorAll('a[onclick], button[onclick]');
-    btns.forEach(function(el){
-        if (el.textContent.includes('导出') || el.textContent.includes('保存') || el.textContent.includes('清除') || el.textContent.includes('返回')) {
-            el.parentNode.removeChild(el);
-        }
-    });
-
-    // Remove all script tags (charts rendered as canvas/images already)
-    var scripts = clone.querySelectorAll('script');
-    scripts.forEach(function(s){ s.parentNode.removeChild(s); });
-
-    // Add export timestamp
+    // Add export info at top
     var title = reportType === 'sales' ? '📈 销售分析报告' : '📊 费用分析报告';
     var info = document.createElement('div');
     info.style.cssText = 'text-align:center;color:#a0a8c0;font-size:11px;padding:8px;border-bottom:1px solid #1e1e40;margin-bottom:12px';
-    info.textContent = title + ' | ' + (fileNames||['-']).join(', ') + ' | 导出: ' + new Date().toLocaleString('zh-CN');
+    info.textContent = title + ' | ' + (fileNames||['-']).join(', ') + ' | 导出时间: ' + new Date().toLocaleString('zh-CN');
     var main = clone.querySelector('.main');
     if (main) main.insertBefore(info, main.firstChild);
-
-    // Serialize ECharts to base64 images (to keep charts in export)
-    var chartDivs = clone.querySelectorAll('.chart-box, .chart-box-sm');
-    chartDivs.forEach(function(div){
-        var instance = null;
-        // Find echarts instance for this div
-        if (typeof echarts !== 'undefined') {
-            instance = echarts.getInstanceByDom(document.getElementById(div.id));
-        }
-        if (instance) {
-            var img = document.createElement('img');
-            img.src = instance.getDataURL({type:'png',pixelRatio:2,backgroundColor:'#16162e'});
-            img.style.width = '100%';
-            img.style.height = div.style.height || '380px';
-            img.style.objectFit = 'contain';
-            div.parentNode.replaceChild(img, div);
-        }
-    });
 
     return '<!DOCTYPE html>\n' + clone.outerHTML;
 }

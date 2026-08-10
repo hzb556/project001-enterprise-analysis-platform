@@ -260,41 +260,23 @@ def create_app(config=None):
                 from modules.expense.processor import process_dataframe, validate_and_clean_data
                 col_defs = COLUMN_DEFS
 
-            # Column detection
-            mapping, confidence, details, unmatched = detect_columns(df, col_defs)
-
-            # Apply user mapping overrides
-            for fk, col in user_mapping.items():
-                if col and col in df.columns:
-                    mapping[fk] = col
-
-            # Rename columns
-            rename_map = {v: k for k, v in mapping.items() if v and v in df.columns}
-            df = df.rename(columns=rename_map)
-            app.logger.warning('[upload-large] mapping: %s', json.dumps(mapping, ensure_ascii=False))
-            app.logger.warning('[upload-large] columns after rename: %s', list(df.columns[:20]))
-
-            # Fallback: if no year/month/date mapped, try to auto-detect from column names
-            if not any(c in df.columns for c in ['year','month','date']):
-                for col in df.columns:
-                    lower = str(col).lower()
-                    if '年' in str(col) and 'year' not in df.columns:
-                        df = df.rename(columns={col: 'year'})
-                    elif '月' in str(col) and 'month' not in df.columns:
-                        df = df.rename(columns={col: 'month'})
-                    elif '日' in str(col) and 'date' not in df.columns:
-                        df = df.rename(columns={col: 'date'})
-
-            # Validate & process
-            df, warnings = validate_and_clean_data(df)
-            # Hard fallback: if year/month still missing, force extraction from date
-            if 'year' not in df.columns and 'date' in df.columns:
+            # Direct rename of common Chinese headers to field keys
+            RM = {'年':'year','年份':'year','年度':'year','月':'month','月份':'month','日期':'date','记账日期':'date','业务日期':'date','科目':'subject','费用科目':'subject','部门':'dept','责任部门':'dept','核算项目':'cat','费用项目':'cat','项目':'cat','摘要':'summary','事由':'summary','金额':'amount','发生额':'amount','价税合计':'amount','客户':'customer','产品':'product','物料名称':'product','成本金额':'cost','销售员':'salesperson','业务员':'salesperson','品牌':'brand','产品类别':'category','类别':'category','计价数量':'quantity','数量':'quantity','单价':'unit_price','单据编号':'order_no','销售合同号':'order_no'}
+            df = df.rename(columns={c: RM[c] for c in df.columns if str(c).strip() in RM})
+            if 'date' in df.columns:
                 df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
-                df['year'] = df['date_dt'].dt.year
-                df['month'] = df['date_dt'].dt.month
-            if 'year' not in df.columns or 'month' not in df.columns:
-                cols = [str(c) for c in df.columns[:20]]
-                return jsonify({'error': '无法识别年份/月份列。\n表头: ' + ', '.join(cols) + '\n映射: ' + json.dumps(mapping, ensure_ascii=False) + '\n请确保 Excel 包含"日期"列或"年份""月份"列。'}), 400
+                if 'year' not in df.columns: df['year'] = df['date_dt'].dt.year
+                if 'month' not in df.columns: df['month'] = df['date_dt'].dt.month
+            if 'year' in df.columns: df['year'] = pd.to_numeric(df['year'], errors='coerce')
+            if 'month' in df.columns: df['month'] = pd.to_numeric(df['month'], errors='coerce')
+            if 'amount' in df.columns: df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
+            else: df['amount'] = 0
+            if 'cost' not in df.columns: df['cost'] = 0
+            else: df['cost'] = pd.to_numeric(df['cost'], errors='coerce').fillna(0)
+            if 'quantity' not in df.columns: df['quantity'] = 0
+            if 'unit_price' not in df.columns: df['unit_price'] = 0
+            if 'year' in df.columns and 'month' in df.columns: df = df[(df['year']>=2000)&(df['year']<=2100)&(df['month']>=1)&(df['month']<=12)]
+            if len(df) == 0: return jsonify({'error': '无有效数据。表头: '+', '.join(str(c) for c in df.columns[:15])}), 400
             DATA, detail_rows = process_dataframe(df)
 
             from shared.encoder import NpEncoder

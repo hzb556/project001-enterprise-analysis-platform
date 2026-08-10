@@ -283,7 +283,11 @@ def create_app(config=None):
             # If year/month still missing after all attempts, create dummy columns
             if 'year' not in df.columns: df['year'] = 2024
             if 'month' not in df.columns: df['month'] = 1
-            if 'year' in df.columns and 'month' in df.columns: df = df[(df['year']>=2000)&(df['year']<=2100)&(df['month']>=1)&(df['month']<=12)]
+            if 'year' in df.columns and 'month' in df.columns:
+                df['year'] = df['year'].fillna(2024).astype(int)
+                df['month'] = df['month'].fillna(1).astype(int)
+                df = df[(df['year']>=2000)&(df['year']<=2100)&(df['month']>=1)&(df['month']<=12)]
+                df['ym'] = df['year'].astype(str) + '-' + df['month'].astype(str).str.zfill(2)
             if len(df) == 0:
                 raw_cols = [str(c).strip() for c in (pd_read_excel(tmp_path).columns if 'pd' in dir() else df.columns)]
                 return jsonify({'error': '无有效数据。原始表头: '+', '.join(raw_cols[:15])+'。重命名后: '+', '.join([str(c) for c in df.columns[:15]])}), 400

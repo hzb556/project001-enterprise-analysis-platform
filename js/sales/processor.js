@@ -97,6 +97,7 @@ function salesMergeFiles(allCleaned) {
 
 
 function processSalesData(rows) {
+  if(!rows||rows.length===0) return { DATA: { years:[], kpi:{}, diagHTML:'<p>无有效数据</p>' }, detailRows: [] };
   const years = Array.from(new Set(rows.map(r => r.year))).sort((a,b) => a-b);
   const yms = Array.from(new Set(rows.map(r => r.ym))).sort();
   const cy = years[years.length-1];
@@ -565,8 +566,8 @@ function processSalesData(rows) {
   const newCust = [...cyCust].filter(c => !pyCustSet.has(c)).length;
   const lostCust = [...pyCustSet].filter(c => !cyCustSet.has(c)).length;
 
-  const gpMargin = kpi.gp_margin;
-  const gpMarginPrev = kpi.gp_margin_prev;
+  const gpMargin = (kpi&&kpi.gp_margin!=null)?kpi.gp_margin:0;
+  const gpMarginPrev = (kpi&&kpi.gp_margin_prev!=null)?kpi.gp_margin_prev:0;
   const gpTrend = gpMargin>gpMarginPrev+1?'提升':(gpMargin<gpMarginPrev-1?'下降':'持平');
 
   const peakYr = years.reduce((best,y) => {

@@ -664,8 +664,8 @@ async function saveAndGo(result){
   var choice = await new Promise(function(resolve){
     setTimeout(function(){
       var warnMsg = (result.warnings||[]).length ? '\n\n📋 文件信息:\n'+result.warnings.slice(0,8).join('\n') : '';
-      var mapMsg = result.mapping ? '\n\n🔧 列映射:\n'+JSON.stringify(result.mapping).replace(/,/g,'\n').replace(/[{}"]/g,'').replace(/:/g,': ') : '';
-      resolve(confirm('✅ 分析完成！共 '+rows.length+' 行数据'+warnMsg+mapMsg+'\n\n是否保存报告到云端？\n• 保存后可在历史记录中随时查看和打开\n• 报告仅包含汇总数据，不含原始文件\n\n（选择"取消"可仅本次查看，关闭页面后清空）'));
+      var sizeNote = rows.length >= 200000 ? '\n\n⚠️ 数据量较大（'+rows.length+'行），已自动截取前20万行分析。建议拆分文件后重新上传以获得完整分析。' : '';
+      resolve(confirm('✅ 分析完成！共 '+rows.length+' 行数据'+sizeNote+warnMsg+'\n\n是否保存报告到云端？\n• 保存后可在历史记录中随时查看和打开\n• 报告仅包含汇总数据，不含原始文件\n\n（选择"取消"可仅本次查看，关闭页面后清空）'));
     }, 300);
   });
 

@@ -208,7 +208,7 @@ a:hover{text-decoration:underline}
       <span class="logo-text">企业运营分析平台</span>
     </div>
     <div class="user-area">
-      <button class="btn-history" id="btnHistory" onclick="toggleHistory()" style="display:none">📋 历史 <span id="historyCount"></span></button>
+      <button class="btn-history" id="btnHistory" onclick="toggleHistory()">📋 历史 <span id="historyCount"></span></button>
       <span class="user-email" id="userEmail"></span>
       <button class="btn-logout" onclick="doLogout()">退出</button>
     </div>
@@ -818,7 +818,6 @@ async function loadReportHistory(){
     var list = document.getElementById('historyDropdownList');
 
     if (!reports.length) {
-      btn.style.display = '';
       count.textContent = '0';
       list.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:16px">暂无保存的报告</p>';
       return;

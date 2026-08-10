@@ -175,27 +175,31 @@ function _readCalamineFast(file, mapping, progressCb) {
             var cleaned=[],total=allRows.length-1,BATCH=5000;
 
             // Iterative with yield — no recursion, no stack overflow
-            return new Promise(function(resolve){
+            return new Promise(function(resolve, reject){
                 var i=1;
                 function processChunk(){
-                    var end=Math.min(i+BATCH, allRows.length);
-                    for(;i<end;i++){
-                        var rr=allRows[i],r={};
-                        for(var fk in colIdx){r[fk]=colIdx[fk]<rr.length?cellValueToAny(rr[colIdx[fk]]):null;}
-                        if(r.date!=null&&(!r.year||!r.month)){
-                            var dVal=r.date;
-                            if(typeof dVal==='string'){var n=parseFloat(dVal);if(!isNaN(n)&&n>30000&&n<100000)dVal=n;}
-                            if(typeof dVal==='number'&&dVal>30000&&dVal<100000){var d=new Date((dVal-25569)*86400*1000);if(!r.year)r.year=d.getUTCFullYear();if(!r.month)r.month=d.getUTCMonth()+1;}
+                    try {
+                        var end=Math.min(i+BATCH, allRows.length);
+                        for(;i<end;i++){
+                            var rr=allRows[i],r={};
+                            for(var fk in colIdx){r[fk]=colIdx[fk]<rr.length?cellValueToAny(rr[colIdx[fk]]):null;}
+                            if(r.date!=null&&(!r.year||!r.month)){
+                                var dVal=r.date;
+                                if(typeof dVal==='string'){var n=parseFloat(dVal);if(!isNaN(n)&&n>30000&&n<100000)dVal=n;}
+                                if(typeof dVal==='number'&&dVal>30000&&dVal<100000){var d=new Date((dVal-25569)*86400*1000);if(!r.year)r.year=d.getUTCFullYear();if(!r.month)r.month=d.getUTCMonth()+1;}
+                            }
+                            var year=parseInt(r.year),month=parseInt(r.month);
+                            if(!isNaN(year)&&year>=2000&&year<=2100&&!isNaN(month)&&month>=1&&month<=12){
+                                r.year=year;r.month=month;r.amount=parseFloat(r.amount)||0;
+                                cleaned.push(r);
+                            }
+                            // Cap at 200K rows to prevent analysis OOM
+                            if(cleaned.length>=200000){i=allRows.length;break;}
                         }
-                        var year=parseInt(r.year),month=parseInt(r.month);
-                        if(!isNaN(year)&&year>=2000&&year<=2100&&!isNaN(month)&&month>=1&&month<=12){
-                            r.year=year;r.month=month;r.amount=parseFloat(r.amount)||0;
-                            cleaned.push(r);
-                        }
-                    }
-                    if(progressCb)progressCb(Math.round(i/total*100),cleaned.length,total);
-                    if(i>=allRows.length){resolve(cleaned);return;}
-                    setTimeout(processChunk,0);
+                        if(progressCb)progressCb(Math.round(i/total*100),cleaned.length,total);
+                        if(i>=allRows.length){resolve(cleaned);return;}
+                        setTimeout(processChunk,10);
+                    } catch(e) { reject(e); }
                 }
                 processChunk();
             });

@@ -306,9 +306,9 @@ def create_app(config=None):
                 'ok': True,
                 'DATA': DATA,
                 'detailRows': detail_rows,
-                'mapping': mapping,
-                'warnings': warnings or [],
-                'unmatched': unmatched or [],
+                'mapping': rename_map,
+                'warnings': [],
+                'unmatched': [],
             })
         except Exception as e:
             import traceback

@@ -67,9 +67,8 @@ tr:hover td { background:#1e1e40; }
   <div style="display:flex;gap:8px;align-items:center">
     <span id="topName" style="font-size:10px;color:var(--muted)"></span>
     <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:5px">← 返回</a>
-    <a href="#" onclick="doExport('html')" style="color:var(--green);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--green);border-radius:5px">📥 导出</a>
-    <a href="#" onclick="doExport('excel')" style="color:#4caf84;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #4caf84;border-radius:5px">📥 Excel</a>
-    <a href="#" onclick="doSave()" style="color:#a855f7;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #a855f7;border-radius:5px">☁ 保存</a>
+    <a href="javascript:void(0)" onclick="doExport('html');return false" style="color:var(--green);text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid var(--green);border-radius:5px">📥 导出 HTML</a>
+    <a href="javascript:void(0)" onclick="doSave()" style="color:#a855f7;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #a855f7;border-radius:5px">☁ 保存</a>
     <button onclick="doClear()" style="background:transparent;color:var(--red);border:1px solid #ff525240;border-radius:5px;cursor:pointer;font-size:11px;padding:4px 10px">🗑 清除</button>
   </div>
 </div>
@@ -2398,7 +2397,7 @@ function renderProdLifecycle() {
   else { Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(function(r){return r.json();}).then(function(rows){ R=rows; build(R); }); }
 }
 
-async function doExport(fmt){ var r=await loadReport(); if(r) await exportReport(fmt,r); }
+async function doExport(fmt){ try { var r=await loadReport(); if(!r){ alert('No data'); return; } await exportReport(fmt,r); } catch(e){ alert('Export failed: '+e.message); } }
 async function doSave(){ var r=await loadReport(); if(!r)return; var resp=await fetch('/api/reports/save',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({DATA:r.DATA,detailRows:r.detailRows,reportType:'sales',fileNames:r.fileNames,id:r.id})}); var j=await resp.json(); alert(j.ok?'已保存':'保存失败: '+j.error); }
 async function doClear(){ if(confirm('确定清除？')){ await clearReport(); window.location.href='index.html'; } }
 

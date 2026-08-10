@@ -293,7 +293,8 @@ def create_app(config=None):
                 df['year'] = df['date_dt'].dt.year
                 df['month'] = df['date_dt'].dt.month
             if 'year' not in df.columns or 'month' not in df.columns:
-                return jsonify({'error': '无法识别年份/月份列。文件表头: ' + ', '.join(str(c) for c in df.columns[:15]) + '。请确保包含"日期"列或单独的"年份""月份"列。'}), 400
+                cols = [str(c) for c in df.columns[:20]]
+                return jsonify({'error': '无法识别年份/月份列。\n表头: ' + ', '.join(cols) + '\n映射: ' + json.dumps(mapping, ensure_ascii=False) + '\n请确保 Excel 包含"日期"列或"年份""月份"列。'}), 400
             DATA, detail_rows = process_dataframe(df)
 
             from shared.encoder import NpEncoder

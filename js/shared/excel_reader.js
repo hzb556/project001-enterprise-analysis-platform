@@ -96,12 +96,11 @@ async function readExcelHeaders(file) {
  * 快速读取数据行——仅转换 mapping 中需要的列，边读边过滤无效行
  * @returns {object[]} 清洗后的行数组
  */
-async function readExcelDataFast(file, mapping, validateFn) {
+async function readExcelDataFast(file, mapping, progressCb) {
     const mod = await initCalamine();
     if (!mod) throw new Error('calamine WASM 未就绪');
     const bytes = new Uint8Array(await file.arrayBuffer());
     const workbook = mod.Workbook.from_bytes(bytes);
-    // Find best sheet
     const sheetNames = workbook.sheet_names();
     let bestSheet = null, bestRows = 0;
     for (let i = 0; i < sheetNames.length; i++) {
@@ -112,20 +111,20 @@ async function readExcelDataFast(file, mapping, validateFn) {
 
     const allRawRows = bestSheet.rows;
     const headers = (allRawRows[0] || []).map(cv => cellValueToString(cv));
-    // Build column index for needed fields
-    const colMap = {}; // fieldKey → columnIndex
+    const colMap = {};
     for (const [fk, col] of Object.entries(mapping)) {
         if (col) { const idx = headers.indexOf(col); if (idx >= 0) colMap[fk] = idx; }
     }
 
     const cleaned = [];
+    const totalRows = allRawRows.length - 1;
+    const BATCH = 30000;
     for (let i = 1; i < allRawRows.length; i++) {
         const rawRow = allRawRows[i];
         const r = {};
         for (const [fk, idx] of Object.entries(colMap)) {
             r[fk] = idx < rawRow.length ? cellValueToAny(rawRow[idx]) : null;
         }
-        // Inline minimal validation
         if (r.date != null && (!r.year || !r.month)) {
             var dVal = r.date;
             if (typeof dVal === 'string') { var n = parseFloat(dVal); if (!isNaN(n) && n > 30000 && n < 100000) dVal = n; }
@@ -142,6 +141,12 @@ async function readExcelDataFast(file, mapping, validateFn) {
         r.year = year; r.month = month;
         r.amount = parseFloat(r.amount) || 0;
         cleaned.push(r);
+
+        // Yield every BATCH rows for UI update
+        if (i % BATCH === 0) {
+            if (progressCb) progressCb(Math.round(i / totalRows * 100), cleaned.length, totalRows);
+            await new Promise(r => setTimeout(r, 0));
+        }
     }
     return cleaned;
 }

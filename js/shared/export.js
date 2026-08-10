@@ -27,7 +27,7 @@ async function exportReport(format, report) {
 
     switch (format) {
         case 'html':
-            blob = buildHTML(DATA, detailRows, reportType, fileNames);
+            blob = new Blob([buildHTML(DATA, detailRows, reportType, fileNames)], { type: 'text/html;charset=utf-8' });
             filename = `${safeName}_${dateStr}.html`;
             mimeType = 'text/html';
             break;

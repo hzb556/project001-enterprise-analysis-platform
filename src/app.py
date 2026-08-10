@@ -39,6 +39,7 @@ def create_app(config=None):
         env = os.environ.get('FLASK_ENV', 'development')
         config = ProductionConfig if env == 'production' else DevelopmentConfig
     app.config.from_object(config)
+    app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB for large file uploads
 
     _check_production_secrets(app)
 

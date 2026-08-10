@@ -87,6 +87,11 @@ async function readExcelHeaders(file) {
 async function readExcelDataFast(file, mapping, progressCb) {
     const ext = file.name.split('.').pop().toLowerCase();
     if (ext === 'xls') return _readCalamineFast(file, mapping, progressCb);
+    // Large xlsx (>30MB): use calamine (WASM memory, won't blow JS heap)
+    if (file.size > 30 * 1024 * 1024) {
+        console.log('[Excel] Large file ('+(file.size/1024/1024).toFixed(0)+'MB), using calamine');
+        return _readCalamineFast(file, mapping, progressCb);
+    }
     return _readSheetJSFast(file, mapping, progressCb);
 }
 

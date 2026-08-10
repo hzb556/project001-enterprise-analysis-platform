@@ -615,8 +615,11 @@ async function startAnalysis(){
       var formData = new FormData();
       formData.append('file', selectedFiles[0]);
       formData.append('module', currentModule);
-      updateProgress(20,'正在上传...');
-      var resp = await fetch(API_BASE + '/api/upload-large', { method: 'POST', body: formData, credentials: 'same-origin' });
+      updateProgress(20,'正在上传（'+(totalSize/1024/1024).toFixed(0)+'MB）...');
+      var controller = new AbortController();
+      var timeout = setTimeout(function(){ controller.abort(); }, 300000); // 5 min timeout
+      var resp = await fetch(API_BASE + '/api/upload-large', { method: 'POST', body: formData, credentials: 'same-origin', signal: controller.signal });
+      clearTimeout(timeout);
       var json = await resp.json();
       if (json.error) throw new Error(json.error);
       updateProgress(60,'服务器分析完成');

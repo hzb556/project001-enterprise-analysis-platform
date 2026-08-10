@@ -56,93 +56,55 @@ async function exportReport(format, report) {
     showDownloadToast(format, filename);
 }
 
-// ---- HTML 导出 ----
+// ---- HTML 导出（原样导出页面 DOM）----
 
 function buildHTML(DATA, rows, reportType, fileNames) {
-    const diagHTML = DATA.diagHTML || '';
-    const title = reportType === 'sales' ? '销售分析报告' : '费用分析报告';
-    const kpiSummary = buildHTMLKPISummary(DATA, reportType);
+    // Clone the current page, remove interactive elements, export full HTML
+    var clone = document.documentElement.cloneNode(true);
 
-    return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title} — ${fileNames ? fileNames.join(', ') : ''}</title>
-<style>
-body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;max-width:1200px;margin:0 auto;padding:20px;background:#0b0b18;color:#e0e0e0;line-height:1.7}
-h1{color:#5b9bd5;border-bottom:2px solid #5b9bd5;padding-bottom:10px}
-h2{color:#a0a8c0;margin-top:30px}
-h3{color:#5b9bd5;margin-top:24px}
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:20px 0}
-.kpi-card{background:#1a1a3a;border-radius:10px;padding:16px}
-.kpi-card .label{color:#a0a8c0;font-size:13px}
-.kpi-card .value{font-size:24px;font-weight:700;color:#fff}
-.kpi-card .sub{font-size:12px;color:#a0a8c0;margin-top:4px}
-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
-th{background:#1e1e40;padding:8px 12px;text-align:left;color:#a0a8c0}
-td{padding:6px 12px;border-bottom:1px solid #1a1a3a}
-.up{color:#ff5252}.dn{color:#4caf84}
-ul{padding-left:20px}
-li{margin:6px 0;color:#a0a8c0}
-.footer{margin-top:40px;padding-top:16px;border-top:1px solid #1a1a3a;font-size:11px;color:#555}
-</style>
-</head>
-<body>
-<h1>${title}</h1>
-<p>数据文件：${fileNames ? fileNames.join(', ') : '-'} | 生成时间：${new Date().toLocaleString('zh-CN')}</p>
+    // Remove topbar buttons, modals, overlays
+    var toRemove = clone.querySelectorAll('.topbar .actions, .mapping-modal, .load-overlay, .loading-bar-wrap, .topbar button, .topbar a[href]');
+    toRemove.forEach(function(el){ el.parentNode.removeChild(el); });
 
-<h2>📊 KPI 汇总</h2>
-<div class="kpi-grid">${kpiSummary}</div>
+    // Remove export/save/clear buttons in dashboard
+    var btns = clone.querySelectorAll('a[onclick], button[onclick]');
+    btns.forEach(function(el){
+        if (el.textContent.includes('导出') || el.textContent.includes('保存') || el.textContent.includes('清除') || el.textContent.includes('返回')) {
+            el.parentNode.removeChild(el);
+        }
+    });
 
-<h2>📋 诊断结论</h2>
-<div>${diagHTML}</div>
+    // Remove all script tags (charts rendered as canvas/images already)
+    var scripts = clone.querySelectorAll('script');
+    scripts.forEach(function(s){ s.parentNode.removeChild(s); });
 
-<h2>📋 明细数据（前 500 行）</h2>
-${buildHTMLTable(rows.slice(0, 500), reportType)}
+    // Add export timestamp
+    var title = reportType === 'sales' ? '📈 销售分析报告' : '📊 费用分析报告';
+    var info = document.createElement('div');
+    info.style.cssText = 'text-align:center;color:#a0a8c0;font-size:11px;padding:8px;border-bottom:1px solid #1e1e40;margin-bottom:12px';
+    info.textContent = title + ' | ' + (fileNames||['-']).join(', ') + ' | 导出: ' + new Date().toLocaleString('zh-CN');
+    var main = clone.querySelector('.main');
+    if (main) main.insertBefore(info, main.firstChild);
 
-<p class="footer">由 AI_FACTORY 企业运营分析平台生成 | 数据仅存储在您的浏览器中</p>
-</body>
-</html>`;
-}
+    // Serialize ECharts to base64 images (to keep charts in export)
+    var chartDivs = clone.querySelectorAll('.chart-box, .chart-box-sm');
+    chartDivs.forEach(function(div){
+        var instance = null;
+        // Find echarts instance for this div
+        if (typeof echarts !== 'undefined') {
+            instance = echarts.getInstanceByDom(document.getElementById(div.id));
+        }
+        if (instance) {
+            var img = document.createElement('img');
+            img.src = instance.getDataURL({type:'png',pixelRatio:2,backgroundColor:'#16162e'});
+            img.style.width = '100%';
+            img.style.height = div.style.height || '380px';
+            img.style.objectFit = 'contain';
+            div.parentNode.replaceChild(img, div);
+        }
+    });
 
-function buildHTMLKPISummary(DATA, reportType) {
-    const kpi = DATA.kpi || {};
-    const cards = [];
-
-    if (reportType === 'sales') {
-        cards.push(
-            { l: '当期收入', v: `${((kpi.revenue || 0) / 10000).toFixed(0)} 万` },
-            { l: '毛利率', v: `${(kpi.gp_margin || 0).toFixed(1)}%` },
-            { l: '成交客户', v: kpi.customers || 0 },
-            { l: 'CAGR', v: `${(DATA.cagr || 0).toFixed(1)}%` },
-        );
-    } else {
-        const total = (kpi.total || {});
-        cards.push(
-            { l: '当期总费用', v: `${((total.curr || 0) / 10000).toFixed(0)} 万` },
-            { l: '固定费用占比', v: `${(DATA.fixedPct || 0).toFixed(0)}%` },
-            { l: 'CAGR', v: `${(DATA.cagr || 0).toFixed(1)}%` },
-            { l: '部门数', v: (DATA.depts || []).length },
-        );
-    }
-
-    return cards.map(c =>
-        `<div class="kpi-card"><div class="label">${c.l}</div><div class="value">${c.v}</div></div>`
-    ).join('');
-}
-
-function buildHTMLTable(rows, reportType) {
-    if (!rows || rows.length === 0) return '<p>无数据</p>';
-
-    const sample = rows[0];
-    const keys = Object.keys(sample);
-    const th = keys.map(k => `<th>${k}</th>`).join('');
-    const trs = rows.map(r =>
-        `<tr>${keys.map(k => `<td>${formatCell(r[k])}</td>`).join('')}</tr>`
-    ).join('');
-
-    return `<table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
+    return '<!DOCTYPE html>\n' + clone.outerHTML;
 }
 
 // ---- CSV 导出 ----
@@ -241,14 +203,6 @@ function sanitizeFilename(name) {
 
 function formatDate(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-function formatCell(val) {
-    if (val == null) return '';
-    if (typeof val === 'number') {
-        return Number.isInteger(val) ? String(val) : val.toFixed(2);
-    }
-    return String(val);
 }
 
 function showDownloadToast(format, filename) {

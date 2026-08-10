@@ -97,13 +97,13 @@ function salesMergeFiles(allCleaned) {
 
 
 function processSalesData(rows) {
-  const years = [...new Set(rows.map(r => r.year))].sort((a,b) => a-b);
-  const yms = [...new Set(rows.map(r => r.ym))].sort();
+  const years = Array.from(new Set(rows.map(r => r.year))).sort((a,b) => a-b);
+  const yms = Array.from(new Set(rows.map(r => r.ym))).sort();
   const cy = years[years.length-1];
   const lm = Math.max(...rows.filter(r => r.year===cy).map(r => r.month));
 
   function customersFor(col) {
-    return [...new Set(rows.map(r => r[col]))];
+    return Array.from(new Set(rows.map(r => r[col])));
   }
   function topList(col, n=30) {
     const amts = groupSum(rows, r => r[col], r => r.amount);
@@ -441,7 +441,7 @@ function processSalesData(rows) {
 
   // Customer migration sankey (ALL customers, matches KPI)
   const prevYr = cy-1;
-  const allCustNames = [...new Set(rows.map(r => r.customer))];
+  const allCustNames = Array.from(new Set(rows.map(r => r.customer)));
   const pyActive = new Set(rows.filter(r => r.year===prevYr).map(r => r.customer));
   const cyAll = new Set(rows.filter(r => r.year===cy).map(r => r.customer));
   const cyActiveSet = new Set();
@@ -492,7 +492,7 @@ function processSalesData(rows) {
   const lostCustomers = lostCustNames.map(lc => {
     const ldf = rows.filter(r => r.customer===lc.id);
     const rev = ldf.reduce((s,r) => s+r.amount,0);
-    const lastYm = [...new Set(ldf.map(r => r.ym))].sort().pop();
+    const lastYm = Array.from(new Set(ldf.map(r => r.ym))).sort().pop();
     return {name:lc.name, revenue:Math.round(rev/100)/10, last_ym:lastYm};
   }).sort((a,b) => b.revenue-a.revenue);
 
@@ -691,6 +691,10 @@ async function salesProcessExcelFiles(fileList, columnMapping) {
     if (warnings.length) allWarnings.push('文件'+(fi+1)+' ('+file.name+'): '+warnings.join('; '));
   }
 
+  if (allRows.length > 200000) {
+    console.warn('[销售分析] 数据量过大('+allRows.length+'行)，仅处理前20万行');
+    allRows = allRows.slice(0, 200000);
+  }
   const { DATA, detailRows } = processSalesData(allRows);
   console.log('[销售分析] 文件:', fileList.length, '行数:', allRows.length);
 

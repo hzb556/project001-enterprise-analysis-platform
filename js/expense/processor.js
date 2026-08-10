@@ -127,7 +127,7 @@ function expenseMergeFiles(allCleaned) {
 // ============================================================
 function processExpenseData(rows) {
   // 1. Subject mapping — preserve original subject names
-  const uniqueSubjects = [...new Set(rows.map(r => r.subject))];
+  const uniqueSubjects = Array.from(new Set(rows.map(r => r.subject)));
   const subjAmts = groupSum(rows, r => r.subject, r => r.amount);
   const sortedSubjects = uniqueSubjects.sort((a, b) => (subjAmts.get(b)||0) - (subjAmts.get(a)||0));
 
@@ -144,8 +144,8 @@ function processExpenseData(rows) {
   });
 
   // 2. Basic stats
-  const years = [...new Set(rows.map(r => r.year))].sort((a,b) => a-b);
-  const yms = [...new Set(rows.map(r => r.ym))].sort();
+  const years = Array.from(new Set(rows.map(r => r.year))).sort((a,b) => a-b);
+  const yms = Array.from(new Set(rows.map(r => r.ym))).sort();
   const cy = years[years.length-1];
   const lm = Math.max(...rows.filter(r => r.year === cy).map(r => r.month));
 

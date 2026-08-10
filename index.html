@@ -619,7 +619,9 @@ async function startAnalysis(){
   try {
     var hdr = await readExcelHeaders(selectedFiles[0]);
     updateProgress(10, '检测到 '+hdr.headers.length+' 列，正在匹配...');
-    var detect = mod.detectCols(hdr.headers);
+    var detect = (currentModule === 'sales')
+      ? detectColumnsGeneric(hdr.headers, SALES_COLUMN_DEFS)
+      : detectColumns(hdr.headers);
 
     // Show mapping modal if unmatched required fields
     if (detect.unmatched && detect.unmatched.length > 0) {

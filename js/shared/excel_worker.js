@@ -1,14 +1,14 @@
 /**
  * Excel 读取 Web Worker — 在后台线程处理，不阻塞 UI
  */
-importScripts('../vendor/calamine_js.js');
-
 let _mod = null;
+let _Calamine = null;
 
 async function init() {
     if (_mod) return _mod;
-    // Worker 中 calamine_js 被 importScripts 加载为全局
-    _mod = await calamine_js.default('js/vendor/calamine_js_bg.wasm');
+    var calMod = await import('../vendor/calamine_js.js');
+    _Calamine = calMod;
+    _mod = await calMod.default('js/vendor/calamine_js_bg.wasm');
     return _mod;
 }
 
@@ -45,7 +45,7 @@ self.onmessage = async function(e) {
     var { fileData, mapping, fileName } = e.data;
     try {
         var mod = await init();
-        var workbook = calamine_js.Workbook.from_bytes(new Uint8Array(fileData));
+        var workbook = _Calamine.Workbook.from_bytes(new Uint8Array(fileData));
 
         // Find best sheet
         var sheetNames = workbook.sheet_names();

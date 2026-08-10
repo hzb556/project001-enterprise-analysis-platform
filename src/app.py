@@ -285,6 +285,8 @@ def create_app(config=None):
 
             # Validate & process
             df, warnings = validate_and_clean_data(df)
+            if 'year' not in df.columns or 'month' not in df.columns:
+                return jsonify({'error': '无法识别年份/月份列。文件表头: ' + ', '.join(str(c) for c in df.columns[:15]) + '。请确保包含"日期"列或单独的"年份""月份"列。'}), 400
             DATA, detail_rows = process_dataframe(df)
 
             from shared.encoder import NpEncoder

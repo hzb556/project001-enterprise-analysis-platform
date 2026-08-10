@@ -553,13 +553,39 @@ async function expenseProcessExcelFiles(fileList, columnMapping) {
     detectResult = detectColumns(headers);
   }
 
-  // Step 2: Fast read with inline filtering
+  // Step 2: Use Web Worker for large files (>5MB), direct for small
+  var worker = null;
   for (let fi = 0; fi < fileList.length; fi++) {
     const file = fileList[fi];
-    var cleaned = await readExcelDataFast(file, detectResult.mapping);
-    if (fi === 0 && cleaned.length === 0) allWarnings.push('警告：所有行被过滤，请检查列映射');
-    allWarnings.push('文件'+(fi+1)+' ('+file.name+'): 读取 '+cleaned.length+' 行');
-    allRows.push(...cleaned);
+    if (file.size > 5 * 1024 * 1024) {
+      worker = new Worker('js/shared/excel_worker.js');
+      var promise = new Promise(function(resolve, reject){
+        worker.onmessage = function(e){
+          if (e.data.error) { reject(new Error(e.data.error)); return; }
+          if (e.data.progress != null) {
+            var sub = document.getElementById('loadingSub');
+            if (sub) sub.textContent = '读取中: ' + e.data.progress + '% (' + e.data.loaded + ' 行)';
+            return;
+          }
+          if (e.data.done) { resolve(e.data); }
+        };
+        worker.onerror = function(err){ reject(new Error('Worker 异常: ' + err.message)); };
+      });
+      var fileData = await file.arrayBuffer();
+      worker.postMessage({ fileData: fileData, mapping: detectResult.mapping, fileName: file.name }, [fileData]);
+      var result = await promise;
+      worker.terminate();
+      var cleaned = result.rows;
+      if (result.sheetInfo) allWarnings.push('Sheets: ' + result.sheetInfo);
+      if (fi === 0 && cleaned.length === 0) allWarnings.push('警告：所有行被过滤，请检查列映射');
+      allWarnings.push('文件'+(fi+1)+' ('+file.name+'): 读取 '+cleaned.length+' 行');
+      allRows.push(...cleaned);
+    } else {
+      var cleaned = await readExcelDataFast(file, detectResult.mapping);
+      if (fi === 0 && cleaned.length === 0) allWarnings.push('警告：所有行被过滤，请检查列映射');
+      allWarnings.push('文件'+(fi+1)+' ('+file.name+'): 读取 '+cleaned.length+' 行');
+      allRows.push(...cleaned);
+    }
   }
 
   const merged = { rows: allRows, warnings: allWarnings };

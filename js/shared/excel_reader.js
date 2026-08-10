@@ -183,6 +183,9 @@ function _readCalamineFast(file, mapping, progressCb) {
                         for(;i<end;i++){
                             var rr=allRows[i],r={};
                             for(var fk in colIdx){r[fk]=colIdx[fk]<rr.length?cellValueToAny(rr[colIdx[fk]]):null;}
+                            if(r.cost==null)r.cost=0; if(r.quantity==null)r.quantity=0; if(r.unit_price==null)r.unit_price=0;
+                            if(!r.salesperson)r.salesperson=''; if(!r.brand)r.brand='未知'; if(!r.region)r.region='未知';
+                            if(!r.channel)r.channel='未知'; if(!r.department)r.department='未知'; if(!r.category)r.category='未分类';
                             if(r.date!=null&&(!r.year||!r.month)){
                                 var dVal=r.date;
                                 if(typeof dVal==='string'){var n=parseFloat(dVal);if(!isNaN(n)&&n>30000&&n<100000)dVal=n;}

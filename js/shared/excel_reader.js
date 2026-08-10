@@ -172,28 +172,33 @@ function _readCalamineFast(file, mapping, progressCb) {
             var headers=(allRows[0]||[]).map(function(cv){return cellValueToString(cv);});
             var colIdx={};
             for(var fk in mapping){if(mapping[fk]){var idx=headers.indexOf(mapping[fk]);if(idx>=0)colIdx[fk]=idx;}}
-            var cleaned=[],total=allRows.length-1,BATCH=20000;
-            var loop=function(i){
-                if(i>=allRows.length)return Promise.resolve(cleaned);
-                var rr=allRows[i],r={};
-                for(var fk in colIdx){r[fk]=colIdx[fk]<rr.length?cellValueToAny(rr[colIdx[fk]]):null;}
-                if(r.date!=null&&(!r.year||!r.month)){
-                    var dVal=r.date;
-                    if(typeof dVal==='string'){var n=parseFloat(dVal);if(!isNaN(n)&&n>30000&&n<100000)dVal=n;}
-                    if(typeof dVal==='number'&&dVal>30000&&dVal<100000){var d=new Date((dVal-25569)*86400*1000);if(!r.year)r.year=d.getUTCFullYear();if(!r.month)r.month=d.getUTCMonth()+1;}
-                }
-                var year=parseInt(r.year),month=parseInt(r.month);
-                if(!isNaN(year)&&year>=2000&&year<=2100&&!isNaN(month)&&month>=1&&month<=12){
-                    r.year=year;r.month=month;r.amount=parseFloat(r.amount)||0;
-                    cleaned.push(r);
-                }
-                if(i%BATCH===0){
+            var cleaned=[],total=allRows.length-1,BATCH=5000;
+
+            // Iterative with yield — no recursion, no stack overflow
+            return new Promise(function(resolve){
+                var i=1;
+                function processChunk(){
+                    var end=Math.min(i+BATCH, allRows.length);
+                    for(;i<end;i++){
+                        var rr=allRows[i],r={};
+                        for(var fk in colIdx){r[fk]=colIdx[fk]<rr.length?cellValueToAny(rr[colIdx[fk]]):null;}
+                        if(r.date!=null&&(!r.year||!r.month)){
+                            var dVal=r.date;
+                            if(typeof dVal==='string'){var n=parseFloat(dVal);if(!isNaN(n)&&n>30000&&n<100000)dVal=n;}
+                            if(typeof dVal==='number'&&dVal>30000&&dVal<100000){var d=new Date((dVal-25569)*86400*1000);if(!r.year)r.year=d.getUTCFullYear();if(!r.month)r.month=d.getUTCMonth()+1;}
+                        }
+                        var year=parseInt(r.year),month=parseInt(r.month);
+                        if(!isNaN(year)&&year>=2000&&year<=2100&&!isNaN(month)&&month>=1&&month<=12){
+                            r.year=year;r.month=month;r.amount=parseFloat(r.amount)||0;
+                            cleaned.push(r);
+                        }
+                    }
                     if(progressCb)progressCb(Math.round(i/total*100),cleaned.length,total);
-                    return new Promise(function(resolve){setTimeout(function(){resolve(loop(i+1));},0);});
+                    if(i>=allRows.length){resolve(cleaned);return;}
+                    setTimeout(processChunk,0);
                 }
-                return loop(i+1);
-            };
-            return loop(1);
+                processChunk();
+            });
         });
     });
 }

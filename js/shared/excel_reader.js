@@ -73,45 +73,77 @@ async function readExcelFile(file) {
 }
 
 /**
- * 批量读取多个文件并合并
- *
- * @param {File[]} files
- * @returns {Promise<{headers: string[], rows: object[], files: string[]}>}
+ * 快速读取——只返回 headers，不读取数据行
  */
-async function readExcelFiles(files) {
-    if (!files || files.length === 0) {
-        throw new Error('未选择文件');
+async function readExcelHeaders(file) {
+    const mod = await initCalamine();
+    if (!mod) throw new Error('calamine WASM 未就绪');
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const workbook = mod.Workbook.from_bytes(bytes);
+    // Find sheet with most rows
+    const sheetNames = workbook.sheet_names();
+    let bestSheet = null, bestRows = 0;
+    for (let i = 0; i < sheetNames.length; i++) {
+        const s = workbook.get_sheet_by_index(i);
+        if (s && s.rows && s.rows.length > bestRows) { bestRows = s.rows.length; bestSheet = s; }
+    }
+    if (!bestSheet || bestSheet.rows.length === 0) throw new Error('文件中没有数据');
+    const headers = (bestSheet.rows[0] || []).map(cv => cellValueToString(cv));
+    return { headers, sheetName: bestSheet.name || 'Sheet1', rowCount: bestSheet.rows.length - 1 };
+}
+
+/**
+ * 快速读取数据行——仅转换 mapping 中需要的列，边读边过滤无效行
+ * @returns {object[]} 清洗后的行数组
+ */
+async function readExcelDataFast(file, mapping, validateFn) {
+    const mod = await initCalamine();
+    if (!mod) throw new Error('calamine WASM 未就绪');
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const workbook = mod.Workbook.from_bytes(bytes);
+    // Find best sheet
+    const sheetNames = workbook.sheet_names();
+    let bestSheet = null, bestRows = 0;
+    for (let i = 0; i < sheetNames.length; i++) {
+        const s = workbook.get_sheet_by_index(i);
+        if (s && s.rows && s.rows.length > bestRows) { bestRows = s.rows.length; bestSheet = s; }
+    }
+    if (!bestSheet || bestSheet.rows.length < 2) return [];
+
+    const allRawRows = bestSheet.rows;
+    const headers = (allRawRows[0] || []).map(cv => cellValueToString(cv));
+    // Build column index for needed fields
+    const colMap = {}; // fieldKey → columnIndex
+    for (const [fk, col] of Object.entries(mapping)) {
+        if (col) { const idx = headers.indexOf(col); if (idx >= 0) colMap[fk] = idx; }
     }
 
-    const allRows = [];
-    const fileNames = [];
-    let firstHeaders = null;
-
-    for (const file of files) {
-        const ext = file.name.split('.').pop().toLowerCase();
-        if (!['xlsx', 'xls'].includes(ext)) {
-            throw new Error(`文件 "${file.name}" 格式不支持，仅接受 .xlsx / .xls`);
+    const cleaned = [];
+    for (let i = 1; i < allRawRows.length; i++) {
+        const rawRow = allRawRows[i];
+        const r = {};
+        for (const [fk, idx] of Object.entries(colMap)) {
+            r[fk] = idx < rawRow.length ? cellValueToAny(rawRow[idx]) : null;
         }
-        // 检查文件大小
-        if (file.size > APP_CONFIG.maxFileSizeMB * 1024 * 1024) {
-            throw new Error(`文件 "${file.name}" 超过 ${APP_CONFIG.maxFileSizeMB}MB 限制`);
+        // Inline minimal validation
+        if (r.date != null && (!r.year || !r.month)) {
+            var dVal = r.date;
+            if (typeof dVal === 'string') { var n = parseFloat(dVal); if (!isNaN(n) && n > 30000 && n < 100000) dVal = n; }
+            var parsed = parseDate(dVal) || {};
+            if ((!parsed.year || !parsed.month) && typeof dVal === 'number' && dVal > 30000 && dVal < 100000) {
+                var d = new Date((dVal - 25569) * 86400 * 1000);
+                parsed = { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
+            }
+            if (parsed.year) r.year = parsed.year;
+            if (parsed.month) r.month = parsed.month;
         }
+        var year = parseInt(r.year), month = parseInt(r.month);
+        if (isNaN(year) || year < 2000 || year > 2100 || isNaN(month) || month < 1 || month > 12) continue;
+        r.year = year; r.month = month;
+        r.amount = parseFloat(r.amount) || 0;
+        cleaned.push(r);
     }
-
-    for (const file of files) {
-        const result = await readExcelFile(file);
-        if (!firstHeaders) {
-            firstHeaders = result.headers;
-        }
-        allRows.push(...result.rows);
-        fileNames.push(file.name);
-    }
-
-    return {
-        headers: firstHeaders || [],
-        rows: allRows,
-        fileNames,
-    };
+    return cleaned;
 }
 
 // ---- 内部实现 ----

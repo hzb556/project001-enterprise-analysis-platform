@@ -541,31 +541,25 @@ async function expenseProcessExcelFiles(fileList, columnMapping) {
   const allWarnings = [];
   let detectResult = null;
 
+  // Step 1: Read headers only (fast)
+  var hdrResult = await readExcelHeaders(fileList[0]);
+  var headers = hdrResult.headers;
+  allWarnings.push('Sheets: ' + hdrResult.sheetName + '(' + (hdrResult.rowCount) + '行)');
+  allWarnings.push('Headers: ' + headers.slice(0,12).join(', '));
+
+  if (columnMapping) {
+    detectResult = { mapping: columnMapping };
+  } else {
+    detectResult = detectColumns(headers);
+  }
+
+  // Step 2: Fast read with inline filtering
   for (let fi = 0; fi < fileList.length; fi++) {
     const file = fileList[fi];
-    const ext = file.name.split('.').pop().toLowerCase();
-    let rawRows, headers;
-
-    // 统一使用 calamine WASM 读取（兼容性最好，内存效率高）
-    const result = await readExcelFile(file);
-    headers = result.headers;
-    rawRows = result.rows;
-    if (result.sheetInfo) allWarnings.push('Sheets: ' + result.sheetInfo);
-    allWarnings.push('Headers: ' + headers.slice(0,12).join(', '));
-
-    if (fi === 0) {
-      if (columnMapping) {
-        detectResult = { mapping: columnMapping };
-      } else {
-        detectResult = detectColumns(headers);
-      }
-    }
-
-    const { cleaned, warnings } = expenseValidateAndClean(rawRows, detectResult.mapping);
-    var filtered = rawRows.length - cleaned.length;
-    if (filtered > 0) allWarnings.push('文件'+(fi+1)+' ('+file.name+'): 过滤掉 '+filtered+' 行，保留 '+cleaned.length+' 行');
+    var cleaned = await readExcelDataFast(file, detectResult.mapping);
+    if (fi === 0 && cleaned.length === 0) allWarnings.push('警告：所有行被过滤，请检查列映射');
+    allWarnings.push('文件'+(fi+1)+' ('+file.name+'): 读取 '+cleaned.length+' 行');
     allRows.push(...cleaned);
-    if (warnings.length > 0) allWarnings.push('文件'+(fi+1)+' ('+file.name+'): '+warnings.join('; '));
   }
 
   const merged = { rows: allRows, warnings: allWarnings };

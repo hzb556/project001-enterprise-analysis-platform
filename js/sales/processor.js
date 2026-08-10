@@ -660,39 +660,29 @@ async function salesProcessExcelFiles(fileList, columnMapping) {
   const allWarnings = [];
   let detectResult = null;
 
+  // Step 1: Read headers only (fast — no data conversion)
+  var hdrResult = await readExcelHeaders(fileList[0]);
+  var headers = hdrResult.headers;
+  allWarnings.push('Sheets: ' + hdrResult.sheetName + '(' + (hdrResult.rowCount) + '行)');
+  allWarnings.push('Headers: ' + headers.slice(0,15).join(', '));
+
+  detectResult = columnMapping
+    ? { mapping: columnMapping }
+    : detectColumnsGeneric(headers, SALES_COLUMN_DEFS);
+
+  // Step 2: Fast read with inline filtering (only converts needed columns)
   for (let fi = 0; fi < fileList.length; fi++) {
     const file = fileList[fi];
-    const ext = file.name.split('.').pop().toLowerCase();
-    let rawRows, headers;
-
-    // 统一使用 calamine WASM 读取
-    const result = await readExcelFile(file);
-    headers = result.headers;
-    rawRows = result.rows;
-    if (result.sheetInfo) allWarnings.push('Sheets: ' + result.sheetInfo);
-    allWarnings.push('Headers: ' + headers.slice(0,15).join(', '));
-    // Diagnostic: dump first data row raw values
-    if (rawRows.length > 0) {
-      var sample = {};
-      Object.keys(rawRows[0]).slice(0,8).forEach(function(k){ sample[k] = String(rawRows[0][k]).substring(0,40); });
-      allWarnings.push('Row1: ' + JSON.stringify(sample));
+    var cleaned = await readExcelDataFast(file, detectResult.mapping);
+    if (fi === 0 && cleaned.length === 0) {
+      allWarnings.push('警告：所有行被过滤，请检查列映射是否正确');
     }
-
-    if (fi === 0) {
-      detectResult = columnMapping
-        ? { mapping: columnMapping }
-        : detectColumnsGeneric(headers, SALES_COLUMN_DEFS);
-    }
-
-    const { cleaned, warnings } = salesValidateAndClean(rawRows, detectResult.mapping);
-    var filtered = rawRows.length - cleaned.length;
-    if (filtered > 0) allWarnings.push('文件'+(fi+1)+' ('+file.name+'): 过滤掉 '+filtered+' 行，保留 '+cleaned.length+' 行');
+    allWarnings.push('文件'+(fi+1)+' ('+file.name+'): 读取 '+cleaned.length+' 行');
     allRows.push(...cleaned);
-    if (warnings.length) allWarnings.push('文件'+(fi+1)+' ('+file.name+'): '+warnings.join('; '));
   }
 
   if (allRows.length > 200000) {
-    console.warn('[销售分析] 数据量过大('+allRows.length+'行)，仅处理前20万行');
+    allWarnings.push('数据量过大('+allRows.length+'行)，仅处理前20万行');
     allRows = allRows.slice(0, 200000);
   }
   const { DATA, detailRows } = processSalesData(allRows);

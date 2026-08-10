@@ -124,18 +124,22 @@ async function readWithCalamine(file) {
 function _readSheetJSFast(file, mapping, progressCb) {
     return file.arrayBuffer().then(function(data){
         var wb = XLSX.read(data, {type:'array'});
+        // Find best sheet
         var best = wb.SheetNames[0], bestR = 0;
         wb.SheetNames.forEach(function(n){ var rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1}); if(rows.length>bestR){bestR=rows.length;best=n;} });
-        var rows = XLSX.utils.sheet_to_json(wb.Sheets[best]);
-        if(!rows.length) return [];
-        var headers = Object.keys(rows[0]);
-        var colIdx = {}; // fieldKey -> headerName
-        for(var fk in mapping){ if(mapping[fk]){ colIdx[fk]=mapping[fk]; } }
+        // Read as array-of-arrays (header:1) — no object creation overhead
+        var rawRows = XLSX.utils.sheet_to_json(wb.Sheets[best], {header:1});
+        if(rawRows.length < 2) return [];
+        var headers = rawRows[0];
+        // Map fieldKey -> column index (only the columns we actually need)
+        var colIdx = {}; // fieldKey -> columnIndex
+        for(var fk in mapping){ if(mapping[fk]){ for(var h=0; h<headers.length; h++){ if(String(headers[h])===mapping[fk]){ colIdx[fk]=h; break; } } } }
 
-        var cleaned=[], total=rows.length, BATCH=50000;
-        for(var i=0; i<rows.length; i++){
-            var raw=rows[i], r={};
-            for(var fk in colIdx){ r[fk]=raw[colIdx[fk]]; }
+        var cleaned=[], total=rawRows.length-1, BATCH=50000;
+        for(var i=1; i<rawRows.length; i++){
+            var raw=rawRows[i], r={};
+            // Only pick needed columns by index — skip the rest
+            for(var fk in colIdx){ r[fk] = colIdx[fk] < raw.length ? raw[colIdx[fk]] : null; }
             if(r.date!=null&&(!r.year||!r.month)){
                 var dVal=r.date;
                 if(typeof dVal==='string'){var n=parseFloat(dVal);if(!isNaN(n)&&n>30000&&n<100000)dVal=n;}

@@ -585,7 +585,7 @@ function clearFiles(){selectedFiles=[];document.getElementById('fileInput').valu
 // ============ UTILITIES ============
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function formatSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB'}
-function showError(msg){var el=document.getElementById('errorMsg');el.innerHTML=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show')},12000)}
+function showError(msg){var el=document.getElementById('errorMsg');el.innerHTML=msg;el.classList.add('show')}
 function hideError(){document.getElementById('errorMsg').classList.remove('show')}
 function showLoading(text,sub){document.getElementById('loadingText').textContent=text;document.getElementById('loadingSub').textContent=sub||'';document.getElementById('loadingOverlay').classList.add('show')}
 function hideLoading(){document.getElementById('loadingOverlay').classList.remove('show')}

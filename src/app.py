@@ -271,6 +271,10 @@ def create_app(config=None):
             # Rename columns
             rename_map = {v: k for k, v in mapping.items() if v and v in df.columns}
             df = df.rename(columns=rename_map)
+            # Log for debugging
+            import sys
+            print('[upload-large] mapping:', json.dumps(mapping, ensure_ascii=False), file=sys.stderr)
+            print('[upload-large] columns after rename:', list(df.columns[:20]), file=sys.stderr)
 
             # Fallback: if no year/month/date mapped, try to auto-detect from column names
             if not any(c in df.columns for c in ['year','month','date']):

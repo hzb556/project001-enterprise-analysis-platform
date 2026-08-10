@@ -606,6 +606,35 @@ async function startAnalysis(){
   // 清理旧缓存，释放内存
   try { await clearReport(); } catch(e) {}
 
+  // >50MB 大文件走服务端处理（仅内部版启用）
+  var totalSize = selectedFiles.reduce(function(s,f){return s+f.size}, 0);
+  var tooLarge = totalSize > 50 * 1024 * 1024;
+  if (tooLarge && APP_CONFIG.enableLargeFileServer) {
+    showLoading('文件较大（'+(totalSize/1024/1024).toFixed(0)+'MB），上传服务器处理...');
+    try {
+      var formData = new FormData();
+      formData.append('file', selectedFiles[0]);
+      formData.append('module', currentModule);
+      updateProgress(20,'正在上传...');
+      var resp = await fetch(API_BASE + '/api/upload-large', { method: 'POST', body: formData, credentials: 'same-origin' });
+      var json = await resp.json();
+      if (json.error) throw new Error(json.error);
+      updateProgress(60,'服务器分析完成');
+      var result = { DATA: json.DATA, detailRows: json.detailRows, mapping: json.mapping,
+        warnings: json.warnings||[], unmatched: json.unmatched||[] };
+      await saveAndGo(result);
+    } catch(e) {
+      hideLoading(); processingShow = false;
+      showError('<b>处理失败</b>: '+(e.message||'')+'<br><small>请拆分文件后重试</small>');
+    }
+    return;
+  }
+  if (tooLarge) {
+    hideLoading(); processingShow = false;
+    showError('文件过大（'+(totalSize/1024/1024).toFixed(0)+'MB），单文件上限 50MB。<br>请拆分后重试。');
+    return;
+  }
+
   showLoading('正在读取文件...',selectedFiles.length+' 个文件');
   try{
     updateProgress(30,'正在分析数据...');

@@ -212,6 +212,93 @@ def create_app(config=None):
         return jsonify({'ok': True})
 
     # ================================================================
+    # 大文件服务端处理（>50MB，仅内部使用）
+    # ================================================================
+
+    @app.route('/api/upload-large', methods=['POST'])
+    @login_required
+    def api_upload_large():
+        """服务端处理超大 Excel 文件（商用版不启用此接口）"""
+        can, msg = current_user.can_create_report()
+        if not can:
+            return jsonify({'error': msg}), 403
+
+        file = request.files.get('file')
+        if not file:
+            return jsonify({'error': '未选择文件'}), 400
+
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in ('xlsx', 'xls'):
+            return jsonify({'error': '仅支持 .xlsx / .xls 格式'}), 400
+
+        module_type = request.form.get('module', 'expense')
+        user_mapping_json = request.form.get('mapping', '{}')
+        try:
+            user_mapping = json.loads(user_mapping_json)
+        except Exception:
+            user_mapping = {}
+
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(suffix='.' + ext, delete=False)
+        tmp_path = tmp.name
+        file.save(tmp_path)
+        tmp.close()
+
+        try:
+            import pandas as pd
+            from shared.column_detector import detect_columns
+            from shared.excel_reader import pd_read_excel
+
+            df = pd_read_excel(tmp_path)
+
+            if module_type == 'sales':
+                from modules.sales.column_defs import SALES_COLUMN_DEFS
+                from modules.sales.processor import process_dataframe, validate_and_clean_data
+                col_defs = SALES_COLUMN_DEFS
+            else:
+                from modules.expense.column_defs import COLUMN_DEFS
+                from modules.expense.processor import process_dataframe, validate_and_clean_data
+                col_defs = COLUMN_DEFS
+
+            # Column detection
+            mapping, confidence, details, unmatched = detect_columns(df, col_defs)
+
+            # Apply user mapping overrides
+            for fk, col in user_mapping.items():
+                if col and col in df.columns:
+                    mapping[fk] = col
+
+            # Rename columns
+            rename_map = {v: k for k, v in mapping.items() if v and v in df.columns}
+            df = df.rename(columns=rename_map)
+
+            # Validate & process
+            df, warnings = validate_and_clean_data(df)
+            DATA, detail_rows = process_dataframe(df)
+
+            from shared.encoder import NpEncoder
+            DATA = json.loads(json.dumps(DATA, ensure_ascii=False, cls=NpEncoder))
+            detail_rows = json.loads(json.dumps(detail_rows, ensure_ascii=False, cls=NpEncoder))
+
+            return jsonify({
+                'ok': True,
+                'DATA': DATA,
+                'detailRows': detail_rows,
+                'mapping': mapping,
+                'warnings': warnings or [],
+                'unmatched': unmatched or [],
+            })
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': '处理失败: ' + str(e)}), 500
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+
+    # ================================================================
     # 管理员 API
     # ================================================================
 

@@ -264,13 +264,18 @@ def create_app(config=None):
                 from modules.expense.processor import process_dataframe, validate_and_clean_data
                 col_defs = COLUMN_DEFS
 
-            # Direct rename of common Chinese headers to field keys
-            RM = {'年':'year','年份':'year','年度':'year','月':'month','月份':'month','日期':'date','记账日期':'date','业务日期':'date','科目':'subject','费用科目':'subject','部门':'dept','责任部门':'dept','核算项目':'cat','费用项目':'cat','项目':'cat','摘要':'summary','事由':'summary','金额':'amount','发生额':'amount','价税合计':'amount','客户':'customer','产品':'product','物料名称':'product','成本金额':'cost','销售员':'salesperson','业务员':'salesperson','品牌':'brand','产品类别':'category','类别':'category','计价数量':'quantity','数量':'quantity','单价':'unit_price','单据编号':'order_no','销售合同号':'order_no'}
-            # Build rename map, avoiding duplicate targets
+            # Merge user-confirmed mapping with built-in RM as fallback
+            RM = {'年':'year','年份':'year','年度':'year','月':'month','月份':'month','日期':'date','记账日期':'date','业务日期':'date','科目':'subject','费用科目':'subject','部门':'dept','责任部门':'dept','核算项目':'cat','费用项目':'cat','项目':'cat','摘要':'summary','事由':'summary','金额':'amount','发生额':'amount','价税合计':'amount','客户':'customer','产品':'product','物料名称':'product','成本金额':'cost','销售员':'salesperson','业务员':'salesperson','品牌':'brand','产品类别':'category','类别':'category','计价数量':'quantity','数量':'quantity','单价':'unit_price','单据编号':'order_no','销售合同号':'order_no','未结算金额':'amount'}
+            # Build rename map: user mapping takes priority, then RM
             rename_map = {}; used = set()
-            for c in df.columns:
-                k = RM.get(str(c).strip())
-                if k and k not in used: rename_map[c] = k; used.add(k)
+            for col in df.columns:
+                ck = str(col).strip()
+                if ck in user_mapping and user_mapping[ck] and user_mapping[ck] not in used:
+                    rename_map[col] = user_mapping[ck]; used.add(user_mapping[ck])
+            for col in df.columns:
+                ck = str(col).strip()
+                k = RM.get(ck)
+                if k and k not in used: rename_map[col] = k; used.add(k)
             df = df.rename(columns=rename_map)
             if 'date' in df.columns:
                 df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')

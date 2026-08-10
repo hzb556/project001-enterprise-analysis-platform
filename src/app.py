@@ -276,7 +276,9 @@ def create_app(config=None):
             if 'quantity' not in df.columns: df['quantity'] = 0
             if 'unit_price' not in df.columns: df['unit_price'] = 0
             if 'year' in df.columns and 'month' in df.columns: df = df[(df['year']>=2000)&(df['year']<=2100)&(df['month']>=1)&(df['month']<=12)]
-            if len(df) == 0: return jsonify({'error': '无有效数据。表头: '+', '.join(str(c) for c in df.columns[:15])}), 400
+            if len(df) == 0:
+                raw_cols = [str(c).strip() for c in (pd_read_excel(tmp_path).columns if 'pd' in dir() else df.columns)]
+                return jsonify({'error': '无有效数据。原始表头: '+', '.join(raw_cols[:15])+'。重命名后: '+', '.join([str(c) for c in df.columns[:15]])}), 400
             DATA, detail_rows = process_dataframe(df)
 
             from shared.encoder import NpEncoder

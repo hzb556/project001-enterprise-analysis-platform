@@ -680,8 +680,12 @@ async function processWithMapping(files, mapping, tooLarge){
       fileNames: [files[0].name],
       id: json.reportId,
     });
-    hideLoading();
-    window.location.href = (currentModule === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
+    updateProgress(80, '分析完成');
+    // Small delay for IndexedDB to commit before redirect
+    setTimeout(function(){
+      hideLoading();
+      window.location.href = (currentModule === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
+    }, 800);
   } else {
     // Browser path
     var mod = MODULES[currentModule];

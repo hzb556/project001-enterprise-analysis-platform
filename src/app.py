@@ -237,6 +237,7 @@ def create_app(config=None):
 
         module_type = request.form.get('module', 'expense')
         user_mapping_json = request.form.get('mapping', '{}')
+        app.logger.warning('[upload-large] raw mapping: %s', user_mapping_json[:200])
         try:
             raw_mapping = json.loads(user_mapping_json)
             user_mapping = {v: k for k, v in raw_mapping.items() if v}
@@ -261,7 +262,7 @@ def create_app(config=None):
                 from modules.expense.processor import process_dataframe
 
             # Merge user-confirmed mapping with built-in RM as fallback
-            RM = {'年':'year','年份':'year','年度':'year','月':'month','月份':'month','日期':'date','记账日期':'date','业务日期':'date','科目':'subject','费用科目':'subject','部门':'dept','责任部门':'dept','核算项目':'cat','费用项目':'cat','项目':'cat','摘要':'summary','事由':'summary','含税金额':'amount','不含税金额':'amount','不含税金额本币':'amount','不含税金额本位币':'amount','金额':'amount','发生额':'amount','价税合计':'amount','未结算金额':'amount','已结算金额':'amount','价税合计.1':'amount','客户':'customer','产品':'product','物料名称':'product','成本金额':'cost','销售员':'salesperson','业务员':'salesperson','品牌':'brand','产品类别':'category','类别':'category','计价数量':'quantity','数量':'quantity','含税单价':'unit_price','单价':'unit_price','单据编号':'order_no','销售合同号':'order_no'}
+            RM = {'年':'year','年份':'year','年度':'year','月':'month','月份':'month','日期':'date','记账日期':'date','业务日期':'date','科目':'subject','费用科目':'subject','部门':'dept','责任部门':'dept','核算项目':'cat','费用项目':'cat','项目':'cat','摘要':'summary','事由':'summary','含税金额':'amount','不含税金额':'amount','不含税金额本位币':'amount','不含税金额本币':'amount','金额':'amount','发生额':'amount','价税合计':'amount','未结算金额':'amount','已结算金额':'amount','价税合计.1':'amount','客户':'customer','产品':'product','物料名称':'product','成本金额':'cost','销售员':'salesperson','业务员':'salesperson','品牌':'brand','产品类别':'category','类别':'category','计价数量':'quantity','数量':'quantity','含税单价':'unit_price','单价':'unit_price','单据编号':'order_no','销售合同号':'order_no'}
             # Build rename map: user mapping takes priority, then RM
             rename_map = {}; used = set()
             for col in df.columns:

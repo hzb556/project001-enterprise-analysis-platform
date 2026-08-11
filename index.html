@@ -863,6 +863,8 @@ function cancelMapping(){
 }
 
 async function confirmMapping(){
+  console.log('[confirmMapping] called, tooLarge='+_pendingTooLarge);
+  try {
   var mod = MODULES[currentModule];
   var colDefs = mod.colDefs;
   var mapping = {};
@@ -906,6 +908,7 @@ async function confirmMapping(){
     showError('分析失败: '+(e.message||''));
     console.error(e);
   }
+  } catch(e) { hideLoading(); processingShow = false; showError('确认失败: '+(e.message||'')); console.error(e); }
 }
 
 // Reset mapping to auto-detected defaults

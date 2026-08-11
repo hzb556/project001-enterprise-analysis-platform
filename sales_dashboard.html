@@ -1153,17 +1153,23 @@ function toggleCatDrill(name, el) {
 // DEPARTMENT TAB
 // ================================================================
 function initDeptTab() {
+  var depts = D.departments || [];
+  var noDept = depts.length === 0;
+  if (noDept) {
+    ['chDeptMonthly','chDeptYearly','chDeptCustBar','chDeptCustPie'].forEach(function(id){
+      var el = document.getElementById(id); if(el) el.innerHTML = '<div style=\"text-align:center;color:var(--muted);padding:60px 20px\">暂无部门数据<br><small>请在上传时确保列映射包含部门字段</small></div>';
+    });
+    document.getElementById('deptKPIRow').innerHTML = '<div class=\"kpi-card\" style=\"text-align:center;color:var(--muted)\">暂无部门数据</div>';
+    return;
+  }
   chDeptMonthly = echarts.init(document.getElementById('chDeptMonthly'));
   chDeptYearly = echarts.init(document.getElementById('chDeptYearly'));
   chDeptCustBar = echarts.init(document.getElementById('chDeptCustBar'));
   chDeptCustPie = echarts.init(document.getElementById('chDeptCustPie'));
-  // Year filter
   var dyf = document.getElementById('deptYearFilter');
   dyf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>'; }).join('');
   dyf.onchange = function(){ renderDeptKPIs(); renderDeptMonthly(); renderDeptYearly(); renderDeptCustBar(); renderDeptCustPie(); renderDeptCustTable(); };
-  // Dept customer filter dropdown
   var dcf = document.getElementById('deptCustFilter');
-  var depts = D.departments || [];
   dcf.innerHTML = depts.map(function(d){ return '<option value="'+d.name+'">'+d.name+'</option>'; }).join('');
   dcf.onchange = function(){ renderDeptCustBar(); renderDeptCustPie(); renderDeptCustTable(); };
   renderDeptKPIs(); renderDeptMonthly(); renderDeptYearly();
@@ -2007,14 +2013,20 @@ function renderYearly() {
       var k = D.kpiByYear && D.kpiByYear[String(y)] ? (D.kpiByYear[String(y)].revenue||0)/10000 : 0;
       return Math.round(k*10)/10;
     });
+    // Simple bars with YoY labels
+    var prevVals = (D.years||[]).map(function(y){
+      var k = D.kpiByYear && D.kpiByYear[String(y)] ? (D.kpiByYear[String(y)].revenue_prev||0)/10000 : 0;
+      return Math.round(k*10)/10;
+    });
+    var yoyPcts = vals.map(function(v,i){ return i>0&&prevVals[i]>0?Math.round((v/prevVals[i]-1)*1000)/10:null; });
     chYearly.setOption({
-      tooltip:{trigger:'axis'},
+      tooltip:{trigger:'axis',formatter:function(ps){var i=ps[0].dataIndex;var y=yoyPcts[i];return years[i]+'<br/>收入:'+vals[i].toFixed(0)+'万<br/>同比:'+(y!=null?(y>0?'+':'')+y+'%':'无数据');}},
       grid:{left:60,right:20,top:40,bottom:30},
       xAxis:{type:'category',data:years},
       yAxis:{type:'value',name:'万元'},
       series:[{type:'bar',data:vals,itemStyle:{color:'#5b9bd5',borderRadius:[4,4,0,0]},
         label:{show:true,position:'top',fontSize:10,color:'#a0a8c0',
-          formatter:function(p){return p.value.toFixed(0)+'万';}
+          formatter:function(p){var y2=yoyPcts[p.dataIndex];return (y2!=null?(y2>0?'+':'')+y2+'%':'')+'|'+p.value.toFixed(0)+'万';}
         }}]
     });
   }

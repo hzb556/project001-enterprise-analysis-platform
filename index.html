@@ -689,34 +689,6 @@ function showMappingModalForLarge(fakeResult, mod, hdr, tooLarge){
   fakeResult.headers = hdr.headers;
   showMappingModal(fakeResult, mod);
 }
-// Override confirmMapping to handle large files
-var _origConfirmMapping = confirmMapping;
-confirmMapping = async function(){
-  var mod = MODULES[currentModule];
-  var colDefs = mod.colDefs;
-  var mapping = {};
-  Object.keys(colDefs).forEach(function(fk){
-    var sel = document.getElementById('map_'+fk);
-    mapping[fk] = sel ? (sel.value || null) : (pendingDetectResult ? (pendingDetectResult.mapping ? pendingDetectResult.mapping[fk] : null) : null);
-  });
-  // Check required fields
-  var missing = [];
-  Object.keys(colDefs).forEach(function(fk){ if(colDefs[fk].required && !mapping[fk]) missing.push(colDefs[fk].label); });
-  if (missing.length > 0) { showError('请为以下必须字段选择对应列：'+missing.join('、')); return; }
-
-  document.getElementById('mappingModal').classList.remove('show');
-  showLoading('正在处理...', '使用已确认的列映射');
-  updateProgress(20, '开始处理...');
-
-  try {
-    await processWithMapping(selectedFiles, mapping, _pendingTooLarge);
-  } catch(e) {
-    hideLoading(); processingShow = false;
-    showError('分析失败: '+(e.message||''));
-    console.error(e);
-  }
-};
-
 async function saveAndGo(result){
   // 验证分析结果有效性
   var DATA = result.DATA;

@@ -308,16 +308,21 @@ def create_app(config=None):
                 if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)): return None
                 return obj
             DATA = clean_nan(json.loads(json.dumps(DATA, ensure_ascii=False, cls=NpEncoder)))
-            detail_rows = clean_nan(json.loads(json.dumps(detail_rows, ensure_ascii=False, cls=NpEncoder)))
+            # Only send first 5000 detail rows (table display cap), rest stay on server
+            detail_rows_sample = detail_rows[:5000] if len(detail_rows) > 5000 else detail_rows
+            detail_rows_sample = clean_nan(json.loads(json.dumps(detail_rows_sample, ensure_ascii=False, cls=NpEncoder)))
 
-            return jsonify({
-                'ok': True,
-                'DATA': DATA,
-                'detailRows': detail_rows,
-                'mapping': rename_map,
-                'warnings': [],
-                'unmatched': [],
-            })
+            import gzip
+            result = json.dumps({'ok': True, 'DATA': DATA, 'detailRows': detail_rows_sample,
+                'mapping': rename_map, 'warnings': [], 'unmatched': [], 'totalRows': len(detail_rows)},
+                ensure_ascii=False, cls=NpEncoder)
+            resp = app.response_class(
+                response=gzip.compress(result.encode('utf-8')),
+                status=200,
+                mimetype='application/json',
+                headers={'Content-Encoding': 'gzip'}
+            )
+            return resp
         except Exception as e:
             import traceback
             traceback.print_exc()

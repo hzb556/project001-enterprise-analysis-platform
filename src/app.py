@@ -238,7 +238,8 @@ def create_app(config=None):
         module_type = request.form.get('module', 'expense')
         user_mapping_json = request.form.get('mapping', '{}')
         try:
-            user_mapping = json.loads(user_mapping_json)
+            raw_mapping = json.loads(user_mapping_json)
+            user_mapping = {v: k for k, v in raw_mapping.items() if v}
         except Exception:
             user_mapping = {}
 
@@ -250,19 +251,14 @@ def create_app(config=None):
 
         try:
             import pandas as pd
-            from shared.column_detector import detect_columns
             from shared.excel_reader import pd_read_excel
 
             df = pd_read_excel(tmp_path)
 
             if module_type == 'sales':
-                from modules.sales.column_defs import SALES_COLUMN_DEFS
-                from modules.sales.processor import process_dataframe, validate_and_clean_data
-                col_defs = SALES_COLUMN_DEFS
+                from modules.sales.processor import process_dataframe
             else:
-                from modules.expense.column_defs import COLUMN_DEFS
-                from modules.expense.processor import process_dataframe, validate_and_clean_data
-                col_defs = COLUMN_DEFS
+                from modules.expense.processor import process_dataframe
 
             # Merge user-confirmed mapping with built-in RM as fallback
             RM = {'年':'year','年份':'year','年度':'year','月':'month','月份':'month','日期':'date','记账日期':'date','业务日期':'date','科目':'subject','费用科目':'subject','部门':'dept','责任部门':'dept','核算项目':'cat','费用项目':'cat','项目':'cat','摘要':'summary','事由':'summary','含税金额':'amount','不含税金额':'amount','不含税金额本币':'amount','不含税金额本位币':'amount','金额':'amount','发生额':'amount','价税合计':'amount','未结算金额':'amount','已结算金额':'amount','价税合计.1':'amount','客户':'customer','产品':'product','物料名称':'product','成本金额':'cost','销售员':'salesperson','业务员':'salesperson','品牌':'brand','产品类别':'category','类别':'category','计价数量':'quantity','数量':'quantity','含税单价':'unit_price','单价':'unit_price','单据编号':'order_no','销售合同号':'order_no'}
@@ -270,7 +266,7 @@ def create_app(config=None):
             rename_map = {}; used = set()
             for col in df.columns:
                 ck = str(col).strip()
-                if ck in user_mapping and user_mapping[ck] and user_mapping[ck] not in used:
+                if ck in user_mapping and user_mapping[ck] not in used:
                     rename_map[col] = user_mapping[ck]; used.add(user_mapping[ck])
             for col in df.columns:
                 ck = str(col).strip()

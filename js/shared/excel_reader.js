@@ -75,13 +75,22 @@ async function readExcelHeaders(file) {
         var r = await readWithCalamine(file);
         return { headers: r.headers, sheetName: r.sheetName, rowCount: r.rows.length };
     }
-    // xlsx: use SheetJS
+    // xlsx: read ONLY headers, not all data
     var data = await file.arrayBuffer();
-    var wb = XLSX.read(data, { type: 'array' });
+    var wb = XLSX.read(data, { type: 'array', sheetRows: 1 }); // sheetRows: 1 = only first row
     var best = wb.SheetNames[0]; var bestR = 0;
-    wb.SheetNames.forEach(function(n){ var rows = XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1}); if(rows.length>bestR){bestR=rows.length;best=n;} });
-    var rows = XLSX.utils.sheet_to_json(wb.Sheets[best]);
-    return { headers: rows.length?Object.keys(rows[0]):[], sheetName: best, rowCount: rows.length };
+    // Check row count without loading all data
+    wb.SheetNames.forEach(function(n){
+        var ref = wb.Sheets[n]['!ref'];
+        if (ref) {
+            var range = XLSX.utils.decode_range(ref);
+            var rows = range.e.r - range.s.r + 1;
+            if (rows > bestR) { bestR = rows; best = n; }
+        }
+    });
+    var headerSheet = XLSX.utils.sheet_to_json(wb.Sheets[best], { header: 1 });
+    var headers = headerSheet.length > 0 ? headerSheet[0].map(function(c){ return String(c||''); }) : [];
+    return { headers: headers, sheetName: best, rowCount: bestR };
 }
 
 async function readExcelDataFast(file, mapping, progressCb) {

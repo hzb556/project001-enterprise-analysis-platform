@@ -275,15 +275,15 @@ def create_app(config=None):
                 if k and k not in used: rename_map[col] = k; used.add(k)
             df = df.rename(columns=rename_map)
             if 'date' in df.columns:
-                            # Try parse as datetime string, fallback to Excel serial number
-            df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
-            # Fix rows where date is a numeric Excel serial (e.g. 45961 instead of '2025-01-01')
-            serial_mask = df['date_dt'].isna() & df['date'].notna()
-            if serial_mask.any():
-                df.loc[serial_mask, 'date_dt'] = pd.to_datetime(
-                    pd.to_numeric(df.loc[serial_mask, 'date'], errors='coerce'),
-                    unit='D', origin='1899-12-30', errors='coerce'
-                )
+                # Try parse as datetime string, fallback to Excel serial number
+                df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
+                # Fix rows where date is a numeric Excel serial (e.g. 45961 instead of '2025-01-01')
+                serial_mask = df['date_dt'].isna() & df['date'].notna()
+                if serial_mask.any():
+                    df.loc[serial_mask, 'date_dt'] = pd.to_datetime(
+                        pd.to_numeric(df.loc[serial_mask, 'date'], errors='coerce'),
+                        unit='D', origin='1899-12-30', errors='coerce'
+                    )
                 if 'year' not in df.columns: df['year'] = df['date_dt'].dt.year
                 if 'month' not in df.columns: df['month'] = df['date_dt'].dt.month
             if 'year' in df.columns: df['year'] = pd.to_numeric(df['year'], errors='coerce')

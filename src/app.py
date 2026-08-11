@@ -275,10 +275,9 @@ def create_app(config=None):
                 if k and k not in used: rename_map[col] = k; used.add(k)
             df = df.rename(columns=rename_map)
             if 'date' in df.columns:
-                # Try parse as datetime, then fix Excel serial numbers
                 df['date_dt'] = pd.to_datetime(df['date'], errors='coerce')
-                # Check for NaN dates AND dates parsed to year > 2100 (Excel serial like 46203)
-                needs_fix = df['date_dt'].isna() | (df['date_dt'].dt.year > 2100)
+                # Fix Excel serial dates: NaN, >2100, or <2000 (e.g. 46203→1970)
+                needs_fix = df['date_dt'].isna() | (df['date_dt'].dt.year > 2100) | (df['date_dt'].dt.year < 2000)
                 if needs_fix.any():
                     numeric_vals = pd.to_numeric(df.loc[needs_fix, 'date'], errors='coerce')
                     df.loc[needs_fix, 'date_dt'] = pd.to_datetime(

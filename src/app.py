@@ -293,7 +293,7 @@ def create_app(config=None):
             if 'year' in df.columns and 'month' in df.columns:
                 df['year'] = df['year'].fillna(2024).astype(int)
                 df['month'] = df['month'].fillna(1).astype(int)
-                df = df[(df['year']>=2000)&(df['year']<=2100)&(df['month']>=1)&(df['month']<=12)]
+                df["ym"] = df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
                 df['ym'] = df['year'].astype(str) + '-' + df['month'].astype(str).str.zfill(2)
             if len(df) == 0:
                 raw_cols = [str(c).strip() for c in (pd_read_excel(tmp_path).columns if 'pd' in dir() else df.columns)]

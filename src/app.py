@@ -309,7 +309,16 @@ def create_app(config=None):
                 return obj
             DATA = clean_nan(json.loads(json.dumps(DATA, ensure_ascii=False, cls=NpEncoder)))
             detail_rows = clean_nan(json.loads(json.dumps(detail_rows, ensure_ascii=False, cls=NpEncoder)))
-            return jsonify({'ok': True, 'DATA': DATA, 'detailRows': detail_rows, 'mapping': rename_map, 'warnings': [], 'unmatched': []})
+            # Save to DB directly — avoid 30MB JSON over HTTP
+            report_id = uuid.uuid4().hex[:12]
+            report_obj = Report(id=report_id, user_id=current_user.id,
+                report_name=file.filename, file_count=1,
+                row_count=len(detail_rows), report_type=module_type)
+            report_obj.set_data(DATA, detail_rows)
+            db.session.add(report_obj)
+            current_user.reports_used += 1
+            db.session.commit()
+            return jsonify({'ok': True, 'reportId': report_id, 'mapping': rename_map, 'warnings': [], 'totalRows': len(detail_rows)})
         except Exception as e:
             import traceback
             traceback.print_exc()

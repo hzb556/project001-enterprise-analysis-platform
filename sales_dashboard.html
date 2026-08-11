@@ -1977,35 +1977,47 @@ function initCharts() {
 }
 
 function renderYearly() {
+  var years = (D.years||[]).map(function(y){return y+'年'});
   var depts = D.departments || [];
   var dr = D.deptRevenue || {};
-  var years = (D.years||[]).map(function(y){return y+'年'});
-  var colors = ['#5b9bd5','#4caf84','#ffa726','#ab68d8','#ff5252'];
-  var series = depts.map(function(d,i){ return {
-    name:d.name, type:'bar', stack:'total', data:dr[d.name]||[],
-    itemStyle:{color:colors[i%5]}, emphasis:{focus:'series'},
-    label:{show:true,position:'inside',fontSize:9,color:'#fff',formatter:function(p){
-      var arr2=dr[p.seriesName]||[]; var yi2=p.dataIndex;
-      if(yi2===0||yi2>=arr2.length)return'';
-      var prev2=arr2[yi2-1],curr2=arr2[yi2];
-      if(!prev2||prev2===0)return'';
-      var yoy2=((curr2-prev2)/prev2*100).toFixed(0);
-      return yoy2>0?'+'+yoy2+'%':yoy2+'%';
-    }}
-  };});
-  var totals = years.map(function(_,i){ return depts.reduce(function(s,d){return s+((dr[d.name]||[])[i]||0)},0); });
-  series.push({name:'合计',type:'line',data:totals,symbol:'none',
-    lineStyle:{color:'#fff',type:'dashed',width:1},
-    label:{show:true,position:'top',fontSize:10,color:'#fff',formatter:function(p){return p.value.toFixed(0)}}
-  });
-  chYearly.setOption({
-    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
-    legend:{data:depts.map(function(d){return d.name}),bottom:0,textStyle:{color:'#a0a8c0',fontSize:10}},
-    grid:{left:60,right:20,top:40,bottom:70},
-    xAxis:{type:'category',data:years},
-    yAxis:{type:'value',name:'万元'},
-    series:series
-  });
+  // Check if dept data is empty -> fallback to simple kpiByYear chart
+  var hasDeptData = depts.length > 0 && depts.some(function(d){ return (dr[d.name]||[]).some(function(v){return v>0}); });
+  if (hasDeptData) {
+    var colors = ['#5b9bd5','#4caf84','#ffa726','#ab68d8','#ff5252'];
+    var series = depts.map(function(d,i){ return {
+      name:d.name, type:'bar', stack:'total', data:dr[d.name]||[],
+      itemStyle:{color:colors[i%5]}, emphasis:{focus:'series'}
+    };} );
+    var totals = years.map(function(_,i){ return depts.reduce(function(s,d){return s+((dr[d.name]||[])[i]||0)},0); });
+    series.push({name:'合计',type:'line',data:totals,symbol:'none',
+      lineStyle:{color:'#fff',type:'dashed',width:1},
+      label:{show:true,position:'top',fontSize:10,color:'#fff',formatter:function(p){return p.value.toFixed(0)}}
+    });
+    chYearly.setOption({
+      tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+      legend:{data:depts.map(function(d){return d.name}),bottom:0,textStyle:{color:'#a0a8c0',fontSize:10}},
+      grid:{left:60,right:20,top:40,bottom:70},
+      xAxis:{type:'category',data:years},
+      yAxis:{type:'value',name:'万元'},
+      series:series
+    });
+  } else {
+    // Simple chart from kpiByYear
+    var vals = (D.years||[]).map(function(y){
+      var k = D.kpiByYear && D.kpiByYear[String(y)] ? (D.kpiByYear[String(y)].revenue||0)/10000 : 0;
+      return Math.round(k*10)/10;
+    });
+    chYearly.setOption({
+      tooltip:{trigger:'axis'},
+      grid:{left:60,right:20,top:40,bottom:30},
+      xAxis:{type:'category',data:years},
+      yAxis:{type:'value',name:'万元'},
+      series:[{type:'bar',data:vals,itemStyle:{color:'#5b9bd5',borderRadius:[4,4,0,0]},
+        label:{show:true,position:'top',fontSize:10,color:'#a0a8c0',
+          formatter:function(p){return p.value.toFixed(0)+'万';}
+        }}]
+    });
+  }
 }
 
 function renderMonthly() {

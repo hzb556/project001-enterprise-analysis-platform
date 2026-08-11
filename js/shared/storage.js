@@ -74,3 +74,49 @@ async function getCacheInfo() {
         age: Math.round((Date.now() - r.timestamp) / 1000),
     };
 }
+
+// ---- 列映射记忆（localStorage）----
+const MAPPING_PREFIX = 'col_map_';
+
+function _hashHeaders(headers) {
+    var s = headers.slice().sort().join('|');
+    var h = 0;
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+    return Math.abs(h).toString(36);
+}
+
+function saveMapping(moduleType, headers, mapping) {
+    var key = MAPPING_PREFIX + moduleType + '_' + _hashHeaders(headers);
+    var entry = { headers: headers, mapping: mapping, savedAt: Date.now() };
+    localStorage.setItem(key, JSON.stringify(entry));
+    // Keep only last 10 entries
+    var keys = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.startsWith(MAPPING_PREFIX)) keys.push(k); }
+    if (keys.length > 10) { keys.sort(); for (var j = 0; j < keys.length - 10; j++) localStorage.removeItem(keys[j]); }
+}
+
+function loadMapping(moduleType, headers) {
+    var key = MAPPING_PREFIX + moduleType + '_' + _hashHeaders(headers);
+    var raw = localStorage.getItem(key);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch(e) { return null; }
+}
+
+function listMappings(moduleType) {
+    var results = [];
+    for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.startsWith(MAPPING_PREFIX + moduleType)) {
+            try {
+                var entry = JSON.parse(localStorage.getItem(k));
+                entry._key = k;
+                results.push(entry);
+            } catch(e) {}
+        }
+    }
+    results.sort(function(a,b){ return b.savedAt - a.savedAt; });
+    return results;
+}
+
+function deleteMapping(key) {
+    localStorage.removeItem(key);
+}

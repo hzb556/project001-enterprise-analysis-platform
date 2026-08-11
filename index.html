@@ -266,6 +266,7 @@ a:hover{text-decoration:underline}
       <button class="btn-primary" id="submitBtn" disabled onclick="startAnalysis()">📊 开始分析</button>
       <button class="btn-ghost" id="clearBtn" style="display:none" onclick="clearFiles()">🗑 清空</button>
       <button class="btn-demo" onclick="loadDemo()">🎯 查看演示</button>
+      <button class="btn-ghost" onclick="showMappingMgmt()" style="font-size:12px">⚙ 映射管理</button>
     </div>
 
     <!-- Trust Strip -->
@@ -287,14 +288,32 @@ a:hover{text-decoration:underline}
 <div class="mapping-modal" id="mappingModal">
 <div class="mapping-card">
   <h2>🔧 确认列映射</h2>
-  <p class="m-subtitle">标记为 <span style="color:var(--red)">✗ 未识别</span> 的需要手动选择</p>
+  <p class="m-subtitle" id="mappingFileInfo"></p>
   <table class="mapping-table">
     <thead><tr><th>需要的字段</th><th>对应文件中的列</th><th>匹配度</th></tr></thead>
     <tbody id="mappingTableBody"></tbody>
   </table>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted)">
+    <label style="cursor:pointer;display:flex;align-items:center;gap:4px">
+      <input type="checkbox" id="saveMappingCb"> 💾 保存此次映射（下次相同表头自动填充）
+    </label>
+  </div>
   <div class="mapping-actions">
     <button class="btn-cancel" onclick="cancelMapping()">取消</button>
+    <button class="btn-cancel" onclick="resetMapping()" style="color:var(--orange);border-color:var(--orange)">🔄 恢复自动检测</button>
     <button class="btn-confirm" onclick="confirmMapping()">确认并分析</button>
+  </div>
+</div>
+</div>
+
+<!-- Mapping Management Panel -->
+<div class="mapping-modal" id="mappingMgmtModal">
+<div class="mapping-card" style="max-width:600px">
+  <h2>⚙ 已保存的列映射</h2>
+  <p class="m-subtitle" id="mappingMgmtInfo"></p>
+  <div id="mappingMgmtList" style="max-height:400px;overflow-y:auto"></div>
+  <div class="mapping-actions">
+    <button class="btn-cancel" onclick="document.getElementById('mappingMgmtModal').classList.remove('show')">关闭</button>
   </div>
 </div>
 </div>
@@ -623,16 +642,11 @@ async function startAnalysis(){
       ? detectColumnsGeneric(hdr.headers, SALES_COLUMN_DEFS)
       : detectColumns(hdr.headers);
 
-    // Show mapping modal if unmatched required fields
-    if (detect.unmatched && detect.unmatched.length > 0) {
-      var fakeResult = { mapping: detect.mapping, confidence: detect.confidence || {}, details: detect.details || {}, unmatched: detect.unmatched, DATA: {}, detailRows: [], headers: hdr.headers };
-      hideLoading();
-      showMappingModalForLarge(fakeResult, mod, hdr, tooLarge);
-      return;
-    }
-
-    updateProgress(20, '列匹配完成，开始处理...');
-    await processWithMapping(selectedFiles, detect.mapping, tooLarge);
+    // Always show mapping modal for user confirmation
+    var fakeResult = { mapping: detect.mapping, confidence: detect.confidence || {}, details: detect.details || {}, unmatched: detect.unmatched || [], DATA: {}, detailRows: [], headers: hdr.headers };
+    hideLoading();
+    showMappingModalForLarge(fakeResult, mod, hdr, tooLarge);
+    return;
   } catch(e) {
     hideLoading(); processingShow = false;
     showError('<b>分析失败</b>: '+(e.message||'')+'<br><small>如持续出错，请拆分文件重试</small>');
@@ -671,8 +685,8 @@ async function processWithMapping(files, mapping, tooLarge){
 var _pendingLargeHdr = null, _pendingTooLarge = false;
 function showMappingModalForLarge(fakeResult, mod, hdr, tooLarge){
   _pendingLargeHdr = hdr; _pendingTooLarge = tooLarge;
-  // Convert to the format showMappingModal expects
   fakeResult.allColumns = hdr.headers;
+  fakeResult.headers = hdr.headers;
   showMappingModal(fakeResult, mod);
 }
 // Override confirmMapping to handle large files
@@ -772,24 +786,47 @@ function showMappingModal(result, mod){
   var detect = result;
   var conf = detect.confidence || {};
   var det = detect.details || {};
+  var headers = result.headers || (result.allColumns || []);
 
-  // Read first file headers
-  readExcelFile(selectedFiles[0]).then(function(res){
-    renderMappingTable(res.headers, detect, conf, det, mod.colDefs);
-  }).catch(function(e){
-    showError('读取文件失败: '+e.message);
-    document.getElementById('mappingModal').classList.remove('show');
-  });
+  // Try loading saved mapping
+  var saved = loadMapping(currentModule, headers);
+  if (saved && saved.mapping) {
+    // Merge saved into detected
+    for (var fk in saved.mapping) {
+      if (saved.mapping[fk] && headers.indexOf(saved.mapping[fk]) >= 0) {
+        if (!det[fk]) det[fk] = {};
+        det[fk].column = saved.mapping[fk];
+        conf[fk] = 'saved';
+      }
+    }
+    document.getElementById('saveMappingCb').checked = true;
+  } else {
+    document.getElementById('saveMappingCb').checked = false;
+  }
+
+  document.getElementById('mappingFileInfo').textContent = '文件: '+(selectedFiles[0]?selectedFiles[0].name:'')+' ('+headers.length+'列)';
+  renderMappingTable(headers, detect, conf, det, mod.colDefs);
+
+  // If headers not yet loaded, read them
+  if (!headers.length && selectedFiles[0]) {
+    readExcelFile(selectedFiles[0]).then(function(res){
+      renderMappingTable(res.headers, detect, conf, det, mod.colDefs);
+      document.getElementById('mappingFileInfo').textContent = '文件: '+selectedFiles[0].name+' ('+res.headers.length+'列)';
+    });
+  }
 }
 
 function renderMappingTable(headers, detect, conf, det, colDefs){
+  var hasDate = !!(conf['date'] && conf['date'] !== 'none') || (det['date'] && det['date'].confidence && det['date'].confidence !== 'none');
   var h='';
   Object.keys(colDefs).forEach(function(fk){
     var def = colDefs[fk];
     var d = det[fk] || {column:'',confidence:'none',score:0,alternatives:[]};
     var c = conf[fk] || d.confidence || 'none';
+    var isAuto = ((fk === 'year' || fk === 'month') && hasDate);
+    if (isAuto) { c = 'auto'; }
     var bc = 'conf-'+c;
-    var bt = {'high':'✓ 高','medium':'~ 中','low':'✗ 低','none':'✗ 未识别'}[c]||c;
+    var bt = {'high':'✓ 高','medium':'~ 中','low':'✗ 低','none':'✗ 未识别','saved':'💾 已保存','auto':'自动提取'}[c]||c;
     var opts = '<option value="">-- 未使用 --</option>';
     headers.forEach(function(col){
       var s = (d.column === col) ? ' selected' : '';
@@ -800,15 +837,24 @@ function renderMappingTable(headers, detect, conf, det, colDefs){
 
     var hint = def.hint || '';
     var rm = '';
-    if(def.required){
+    if (isAuto) {
+      rm = '<span style="color:var(--green);font-size:10px">（从日期自动提取）</span>';
+    } else if (def.required) {
       rm = '<span class="field-required">*</span>';
-      if(c === 'high') rm = '<span style="color:var(--green);font-size:10px">✓</span>';
+      if (c === 'high') rm = '<span style="color:var(--green);font-size:10px">✓</span>';
     }
+    var disabled = isAuto ? ' disabled' : '';
     h += '<tr><td><b>'+def.label+'</b>'+rm+'<br><span style="font-size:10px;color:var(--muted)">'+hint+'</span></td>'+
-      '<td><select id="map_'+fk+'">'+opts+'</select></td>'+
+      '<td><select id="map_'+fk+'"'+disabled+'>'+opts+'</select></td>'+
       '<td><span class="conf-badge '+bc+'">'+bt+'</span>'+(d.score>0?' <span style="font-size:10px;color:var(--muted)">('+d.score+'分)</span>':'')+'</td></tr>';
   });
   document.getElementById('mappingTableBody').innerHTML = h;
+  // Date change → toggle year/month
+  var ds = document.getElementById('map_date');
+  if (ds) ds.onchange = function(){
+    var on = ds.value !== '';
+    ['map_year','map_month'].forEach(function(id){ var s=document.getElementById(id); if(s){ s.disabled=on; s.style.opacity=on?'0.5':''; } });
+  };
 }
 
 function cancelMapping(){
@@ -827,6 +873,10 @@ async function confirmMapping(){
     mapping[fk] = sel ? (sel.value || null) : (pendingDetectResult ? (pendingDetectResult.mapping ? pendingDetectResult.mapping[fk] : null) : null);
   });
   Object.keys(colDefs).forEach(function(fk){
+    // Skip year/month requirement if date is mapped
+    if (fk === 'year' || fk === 'month') {
+      if (mapping['date'] || (pendingDetectResult && pendingDetectResult.mapping && pendingDetectResult.mapping['date'])) return;
+    }
     if(colDefs[fk].required && !mapping[fk]){
       missing.push(colDefs[fk].label);
     }
@@ -834,6 +884,14 @@ async function confirmMapping(){
   if(missing.length > 0){
     showError('请为以下必须字段选择对应列：'+missing.join('、'));
     return;
+  }
+
+  // Save mapping if checkbox checked
+  if (document.getElementById('saveMappingCb').checked && selectedFiles[0]) {
+    try {
+      var hdr = _pendingLargeHdr || (pendingDetectResult && pendingDetectResult.headers ? pendingDetectResult : null);
+      if (hdr && hdr.headers) saveMapping(currentModule, hdr.headers, mapping);
+    } catch(e) {}
   }
 
   document.getElementById('mappingModal').classList.remove('show');
@@ -848,6 +906,38 @@ async function confirmMapping(){
     showError('分析失败: '+(e.message||''));
     console.error(e);
   }
+}
+
+// Reset mapping to auto-detected defaults
+function resetMapping(){
+  var mod = MODULES[currentModule];
+  var detect = pendingDetectResult;
+  if (!detect) return;
+  var conf = detect.confidence || {};
+  var det = detect.details || {};
+  var headers = detect.headers || detect.allColumns || [];
+  document.getElementById('saveMappingCb').checked = false;
+  renderMappingTable(headers, detect, conf, det, mod.colDefs);
+}
+
+// Mapping management panel
+function showMappingMgmt(){
+  var mod = MODULES[currentModule];
+  var mappings = listMappings(currentModule);
+  var list = document.getElementById('mappingMgmtList');
+  if (!mappings.length) {
+    list.innerHTML = '<p style="color:var(--muted);padding:16px">暂无保存的映射</p>';
+  } else {
+    list.innerHTML = mappings.map(function(m, i){
+      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:6px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center">'+
+        '<div><b style="font-size:13px">'+(m.headers||[]).slice(0,8).join(', ')+((m.headers||[]).length>8?'...':'')+'</b>'+
+        '<div style="font-size:11px;color:var(--muted)">'+(m.headers||[]).length+'列 · '+new Date(m.savedAt).toLocaleString('zh-CN')+'</div></div>'+
+        '<button onclick="deleteMapping(\''+m._key+'\');showMappingMgmt();" style="background:transparent;color:var(--red);border:1px solid #ff525240;border-radius:4px;cursor:pointer;font-size:11px;padding:3px 8px">删除</button>'+
+        '</div></div>';
+    }).join('');
+  }
+  document.getElementById('mappingMgmtModal').classList.add('show');
 }
 
 // ============ DEMO ============

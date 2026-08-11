@@ -291,7 +291,7 @@ def create_app(config=None):
             if 'year' not in df.columns: df['year'] = 2024
             if 'month' not in df.columns: df['month'] = 1
             if 'year' in df.columns and 'month' in df.columns:
-                df['year'] = df['year'].fillna(2024).astype(int)
+                df['year'] = df['year'].fillna(2024).astype(int); df.loc[df['year'] < 2000, 'year'] = 2024
                 df['month'] = df['month'].fillna(1).astype(int)
                 df["ym"] = df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
                 df['ym'] = df['year'].astype(str) + '-' + df['month'].astype(str).str.zfill(2)

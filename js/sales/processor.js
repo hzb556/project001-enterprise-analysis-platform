@@ -111,8 +111,8 @@ function processSalesData(rows) {
     return sortMapByValue(amts, false).slice(0,n).map(([k,v]) => ({id:k, name:k, amt:Math.round(v*100)/100}));
   }
 
-  const customers = topList('customer', 40);
-  const products = topList('product', 30);
+  const customers = topList('customer', 200);
+  const products = topList('product', 200);
   const regions = topList('region', 15);
   const departments = topList('department', 10);
   const brands = topList('brand', 10);

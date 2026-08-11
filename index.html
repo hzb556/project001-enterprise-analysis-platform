@@ -657,7 +657,7 @@ async function startAnalysis(){
 // === Process with confirmed mapping (browser or server) ===
 async function processWithMapping(files, mapping, tooLarge){
   if (tooLarge && APP_CONFIG.enableLargeFileServer) {
-    // Server path: upload with mapping
+    // Server path: upload with mapping, save to DB
     var formData = new FormData();
     formData.append('file', files[0]);
     formData.append('module', currentModule);
@@ -669,8 +669,19 @@ async function processWithMapping(files, mapping, tooLarge){
     clearTimeout(t);
     var json = await resp.json();
     if (json.error) throw new Error(json.error);
-    updateProgress(60, '服务器分析完成');
-    await saveAndGo({ DATA: json.DATA, detailRows: json.detailRows, mapping: json.mapping || mapping, warnings: json.warnings||[], unmatched: [] });
+    updateProgress(60, '服务器分析完成，正在加载报告...');
+    // Load report from DB via API
+    var r = await fetch(API_BASE + '/api/reports/' + json.reportId, { credentials: 'same-origin' });
+    var reportData = await r.json();
+    await saveReport({
+      DATA: reportData.DATA,
+      detailRows: reportData.detailRows,
+      reportType: currentModule,
+      fileNames: [files[0].name],
+      id: json.reportId,
+    });
+    hideLoading();
+    window.location.href = (currentModule === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html');
   } else {
     // Browser path
     var mod = MODULES[currentModule];

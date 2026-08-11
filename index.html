@@ -863,7 +863,7 @@ function cancelMapping(){
 }
 
 async function confirmMapping(){
-  console.log('[confirmMapping] called, tooLarge='+_pendingTooLarge);
+  alert('confirmMapping called');  // DEBUG
   try {
   var mod = MODULES[currentModule];
   var colDefs = mod.colDefs;

@@ -626,7 +626,7 @@ async function startAnalysis(){
   try { await clearReport(); } catch(e) {}
 
   var totalSize = selectedFiles.reduce(function(s,f){return s+f.size}, 0);
-  var tooLarge = totalSize > 50 * 1024 * 1024;
+  var tooLarge = totalSize > (APP_CONFIG.largeFileThresholdMB || APP_CONFIG.maxFileSizeMB || 50) * 1024 * 1024;
   if (tooLarge && !APP_CONFIG.enableLargeFileServer) {
     hideLoading(); processingShow = false;
     showError('文件过大（'+(totalSize/1024/1024).toFixed(0)+'MB），单文件上限 50MB。<br>请拆分后重试。');

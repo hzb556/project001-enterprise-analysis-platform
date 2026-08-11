@@ -97,8 +97,9 @@ async function readExcelDataFast(file, mapping, progressCb) {
     const ext = file.name.split('.').pop().toLowerCase();
     if (ext === 'xls') return _readCalamineFast(file, mapping, progressCb);
     // >50MB: reject with clear message (server-side processing coming later)
-    if (file.size > 50 * 1024 * 1024) {
-        throw new Error('文件过大（'+(file.size/1024/1024).toFixed(0)+'MB）。浏览器处理上限为50MB。\n请拆分文件后重试，或等待服务端处理功能上线。');
+    var limit = (APP_CONFIG.largeFileThresholdMB || APP_CONFIG.maxFileSizeMB || 50);
+    if (file.size > limit * 1024 * 1024) {
+        throw new Error('文件过大（'+(file.size/1024/1024).toFixed(0)+'MB）。浏览器处理上限为'+limit+'MB。\n请拆分文件后重试，或等待服务端处理功能上线。');
     }
     return _readSheetJSFast(file, mapping, progressCb);
 }

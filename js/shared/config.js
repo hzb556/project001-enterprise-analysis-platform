@@ -11,7 +11,8 @@ const APP_CONFIG = {
     appVersion: '8.1.0',
 
     // 文件大小限制
-    maxFileSizeMB: 50,          // 浏览器端处理上限
+    maxFileSizeMB: 50,          // 商用版浏览器上限
+    largeFileThresholdMB: 20,   // 超过此大小自动走服务端（内部版）
     maxTotalSizeMB: 100,        // 多文件合计上限
     supportedFormats: ['.xlsx', '.xls'],
 

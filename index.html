@@ -637,6 +637,11 @@ async function startAnalysis(){
   showLoading('正在读取表头...', selectedFiles.length+' 个文件');
   try {
     var hdr = await readExcelHeaders(selectedFiles[0]);
+    if (!hdr.headers || !hdr.headers.length) {
+      // Fallback: use readExcelFile to get headers
+      var fullResult = await readExcelFile(selectedFiles[0]);
+      hdr = { headers: fullResult.headers, sheetName: fullResult.sheetName, rowCount: (fullResult.rows||[]).length };
+    }
     updateProgress(10, '检测到 '+hdr.headers.length+' 列，正在匹配...');
     var detect = (currentModule === 'sales')
       ? detectColumnsGeneric(hdr.headers, SALES_COLUMN_DEFS)

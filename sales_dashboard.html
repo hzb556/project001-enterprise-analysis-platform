@@ -197,7 +197,8 @@ tr:hover td { background:#1e1e40; }
   </div><!-- /tab-customer -->
   <!-- Tab: Product -->
   <div class="tab-content" id="tab-product">
-    <div class="controls-row">
+    <div class="filter-zone filter-global">
+      <span class="fz-label">📅 全局</span>
       <select id="prodYearFilter"></select>
     </div>
     <div id="prodKPIRow" class="kpi-row"></div>
@@ -227,8 +228,10 @@ tr:hover td { background:#1e1e40; }
   </div>
   <!-- Tab: Department -->
   <div class="tab-content" id="tab-dept">
-    <div class="controls-row">
+    <div class="filter-zone filter-global" style="flex-wrap:wrap">
+      <span class="fz-label">📅 全局</span>
       <select id="deptYearFilter"></select>
+      <span class="fz-label" style="color:var(--orange);margin-left:8px">🔍 部门筛选</span>
       <select id="deptCustFilter"></select>
     </div>
     <div id="deptKPIRow" class="kpi-row"></div>
@@ -250,7 +253,8 @@ tr:hover td { background:#1e1e40; }
   </div>
   <!-- Tab: Category -->
   <div class="tab-content" id="tab-category">
-    <div class="controls-row">
+    <div class="filter-zone filter-global">
+      <span class="fz-label">📅 全局</span>
       <select id="catYearFilter"></select>
     </div>
     <div id="catKPIRow" class="kpi-row"></div>
@@ -272,14 +276,17 @@ tr:hover td { background:#1e1e40; }
   </div>
   <!-- Tab: Salesperson -->
   <div class="tab-content" id="tab-salesperson">
-    <div class="controls-row">
+    <div class="filter-zone filter-global" style="flex-wrap:wrap">
+      <span class="fz-label">📅 全局</span>
       <select id="spYearFilter"></select>
+      <span class="fz-label" style="color:var(--orange);margin-left:8px">🔍 业务员筛选</span>
       <select id="spSortBy">
         <option value="revenue">按收入排序</option>
         <option value="customers">按客户数排序</option>
         <option value="gp_margin">按毛利率排序</option>
       </select>
-      <input type="text" id="spSearch" placeholder="搜索业务员..." oninput="renderSpTable()">
+      <input type="text" id="spSearch" placeholder="搜索业务员..." oninput="renderSpTable()" style="border-color:rgba(255,167,38,0.5)">
+      <button class="reset-btn" onclick="resetSpFilters()">🔄 重置</button>
     </div>
     <div id="spKPIRow" class="kpi-row"></div>
     <div class="chart-row">
@@ -296,7 +303,8 @@ tr:hover td { background:#1e1e40; }
   </div>
   <!-- Tab: Brand -->
   <div class="tab-content" id="tab-brand">
-    <div class="controls-row">
+    <div class="filter-zone filter-global">
+      <span class="fz-label">📅 全局</span>
       <select id="brandYearFilter"></select>
     </div>
     <div id="brandKPIRow" class="kpi-row"></div>
@@ -318,15 +326,17 @@ tr:hover td { background:#1e1e40; }
   </div>
   <!-- Tab: Detail -->
   <div class="tab-content" id="tab-detail">
+    <div class="filter-zone filter-local" style="flex-wrap:wrap;margin-bottom:12px">
+      <span class="fz-label">🔍 明细筛选</span>
+      <input type="text" id="detailSearch" placeholder="搜索客户/产品/业务员..." oninput="filterDetailTable()">
+      <select id="detailYearFilter" onchange="filterDetailTable()"><option value="all">全部年份</option></select>
+      <select id="detailDeptFilter" onchange="filterDetailTable()"><option value="all">全部部门</option></select>
+      <button class="export-btn" onclick="exportDetailCSV()">📥 导出 CSV</button>
+      <button class="reset-btn" onclick="resetDetailFilters()">🔄 重置</button>
+      <span style="color:var(--muted);font-size:13px;" id="detailTableInfo"></span>
+    </div>
     <div class="chart-panel">
       <h3 style="margin-bottom:12px;">📋 销售明细</h3>
-      <div class="controls">
-        <input type="text" id="detailSearch" placeholder="搜索客户/产品/业务员..." oninput="filterDetailTable()">
-        <select id="detailYearFilter" onchange="filterDetailTable()"><option value="all">全部年份</option></select>
-        <select id="detailDeptFilter" onchange="filterDetailTable()"><option value="all">全部部门</option></select>
-        <button class="export-btn" onclick="exportDetailCSV()">📥 导出 CSV</button>
-        <span style="color:var(--muted);font-size:13px;" id="detailTableInfo"></span>
-      </div>
       <div class="table-wrap">
         <table id="detailDataTable"><thead></thead><tbody></tbody></table>
       </div>
@@ -1452,6 +1462,13 @@ function initSpTab() {
   renderSpKPIs(); renderSpBar(); renderSpScatter(); renderSpTable();
 }
 
+function resetSpFilters() {
+  document.getElementById('spYearFilter').value = D.cy;
+  document.getElementById('spSortBy').value = 'revenue';
+  document.getElementById('spSearch').value = '';
+  renderSpBar(); renderSpScatter(); renderSpTable();
+}
+
 function getFilteredSP(sortBy, selY) {
   const sps = D.salespersons || [];
   const sr = D.spRevenue || {};
@@ -1889,6 +1906,13 @@ function initDetailFilters() {
   const df = document.getElementById('detailDeptFilter');
   const depts = [...new Set(R.map(r => r.dept||'未知'))].filter(Boolean).sort();
   df.innerHTML = '<option value="all">全部部门</option>' + depts.map(d => '<option value="'+d+'">'+d+'</option>').join('');
+}
+
+function resetDetailFilters() {
+  document.getElementById('detailSearch').value = '';
+  document.getElementById('detailYearFilter').value = 'all';
+  document.getElementById('detailDeptFilter').value = 'all';
+  filterDetailTable();
 }
 
 function filterDetailTable() {

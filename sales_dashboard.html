@@ -58,23 +58,25 @@ tr:hover td { background:#1e1e40; }
 .controls-row { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
 .controls-row select, .controls-row input { padding:8px 12px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:14px; }
 /* ===== 三级筛选规范 ===== */
-.filter-zone { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 14px; margin-bottom:14px; border-radius:10px; }
+.filter-zone { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:8px 14px; margin-bottom:14px; border-radius:8px; background:var(--card); border:1px solid var(--border); }
 .filter-zone .fz-label { font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap; }
 .filter-zone select, .filter-zone input { padding:6px 10px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:13px; }
-/* 第1级：全局筛选（蓝色实心） */
-.filter-global { background:rgba(91,155,213,0.12); border:1px solid rgba(91,155,213,0.5); }
+/* 层级用左侧小竖条标识，不用大色块 */
+.filter-global { border-left:3px solid var(--blue); }
 .filter-global .fz-label { color:var(--blue); }
-/* 第2级：本页筛选（橙色边框） */
-.filter-local { background:rgba(255,167,38,0.08); border:1px solid rgba(255,167,38,0.5); }
+.filter-local { border-left:3px solid var(--orange); }
 .filter-local .fz-label { color:var(--orange); }
-.filter-local select, .filter-local input { border-color:rgba(255,167,38,0.5); }
 /* 第3级：图表专属（紫色小图标，放在图表右上角） */
 .chart-filter { position:absolute; top:12px; right:12px; z-index:5; display:flex; gap:6px; align-items:center; }
-.chart-filter select { padding:4px 8px; background:rgba(171,104,216,0.15); color:var(--purple,#ab68d8); border:1px solid rgba(171,104,216,0.5); border-radius:4px; font-size:11px; }
+.chart-filter select { padding:4px 8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:4px; font-size:11px; }
 .chart-filter .cf-icon { color:var(--purple,#ab68d8); font-size:14px; }
 .chart-panel { position:relative; }
 .reset-btn { padding:6px 10px; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:6px; font-size:12px; cursor:pointer; transition:all .2s; }
 .reset-btn:hover { color:var(--text); border-color:var(--blue); }
+/* 标签栏突出——比筛选栏更醒目 */
+.tab-bar { background:var(--card) !important; border:1px solid var(--border) !important; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+.tab-btn { padding:9px 20px !important; font-size:14px !important; }
+.tab-btn.active { box-shadow:0 2px 6px rgba(91,155,213,0.4); }
 
 @media(max-width:1100px){.kpi-row{grid-template-columns:repeat(2,1fr)!important}.chart-row{grid-template-columns:1fr}.tab-bar{flex-wrap:wrap}.main{padding:10px 12px}._topnav{flex-direction:column;gap:8px;padding:10px 16px}._topnav ._tn-left,._topnav ._tn-right{flex-wrap:wrap}.chart-box{height:300px}.chart-box-sm{height:220px}table{font-size:11px}th,td{padding:6px 8px}}
 </style>

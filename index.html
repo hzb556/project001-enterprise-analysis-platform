@@ -559,8 +559,8 @@ async function clearCacheNotice(){
   ['dragleave','drop'].forEach(function(e){
     dropZone.addEventListener(e,function(){dropZone.classList.remove('drag-over')});
   });
-  dropZone.addEventListener('drop',function(e){handleFiles(e.dataTransfer.files)});
-  fileInput.addEventListener('change',function(){handleFiles(fileInput.files)});
+  dropZone.addEventListener('drop',function(e){notifyFileAdding();handleFiles(e.dataTransfer.files)});
+  fileInput.addEventListener('change',function(){notifyFileAdding();handleFiles(fileInput.files)});
 
   // Paste support
   document.addEventListener('paste',function(e){
@@ -582,6 +582,16 @@ function handleFiles(fileList){
     if(!exists)selectedFiles.push(f);
   }
   renderFileList();hideError();
+}
+
+// 文件添加即时反馈
+var _fileAddTimer = null;
+function notifyFileAdding(){
+  var zone = document.getElementById('dropZone');
+  var h3 = zone.querySelector('h3');
+  if (h3) { h3.textContent = '正在添加文件...'; zone.classList.add('has-files'); }
+  clearTimeout(_fileAddTimer);
+  _fileAddTimer = setTimeout(function(){ if (h3) h3.textContent = '拖拽文件到此处，或点击选择'; }, 1500);
 }
 
 function renderFileList(){

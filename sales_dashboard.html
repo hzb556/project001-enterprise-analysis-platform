@@ -144,20 +144,17 @@ tr:hover td { background:#1e1e40; }
   </div><!-- /tab-overview -->
   <!-- Tab: Customer -->
   <div class="tab-content" id="tab-customer">
-    <!-- 第1级：全局筛选（蓝色）—— 年份对所有图表生效 -->
-    <div class="filter-zone filter-global">
+    <!-- 筛选区：全局(蓝) + 本页(橙) 合并为一行 -->
+    <div class="filter-zone filter-global" style="flex-wrap:wrap">
       <span class="fz-label">📅 全局</span>
       <select id="custYearFilter"></select>
-    </div>
-    <!-- 第2级：本页筛选（橙色）—— 只影响本Tab的客户分析 -->
-    <div class="filter-zone filter-local">
-      <span class="fz-label">🔍 客户筛选</span>
+      <span class="fz-label" style="color:var(--orange);margin-left:8px">🔍 客户筛选</span>
       <select id="custSortBy">
         <option value="revenue">按收入排序</option>
         <option value="yoy">按同比排序</option>
         <option value="gp_margin">按毛利率排序</option>
       </select>
-      <input type="text" id="custSearch" placeholder="搜索客户..." oninput="renderCustTable()">
+      <input type="text" id="custSearch" placeholder="搜索客户..." oninput="renderCustTable()" style="border-color:rgba(255,167,38,0.5)">
       <button class="reset-btn" onclick="resetCustFilters()">🔄 重置</button>
     </div>
     <div id="custKPIRow" class="kpi-row"></div>

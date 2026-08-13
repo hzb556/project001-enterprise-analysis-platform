@@ -364,8 +364,18 @@ const pageSize = 50;
 let sortCol = null, sortAsc = true;
 let monthWindow = 24;
 let activeTab = 'overview';
+let globalYear = null;  // 全局年份——所有Tab联动
 let custTabReady = false;
 let chCustBar, chCustScatter, chCustDrill;
+
+// 全局年份联动：改任意Tab的年份，同步所有Tab
+function setGlobalYear(year){
+  globalYear = year;
+  ['yearFilter','custYearFilter','prodYearFilter','deptYearFilter','catYearFilter','spYearFilter','brandYearFilter'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el && el.options.length > 0) el.value = year;
+  });
+}
 
 // ---- Tab Switching ----
 function switchTab(name) {
@@ -388,8 +398,8 @@ function initCustTab() {
   chCustBar = echarts.init(document.getElementById('chCustBar'));
   chCustScatter = echarts.init(document.getElementById('chCustScatter'));
   const sel = document.getElementById('custYearFilter');
-  sel.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===D.cy?'selected':''}>${y} 年</option>`).join('');
-  sel.onchange = () => { renderCustBar(); renderCustScatter(); renderCustTable(); renderPareto(); };
+  sel.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===(globalYear||D.cy)?'selected':''}>${y} 年</option>`).join('');
+  sel.onchange = () => { setGlobalYear(sel.value); renderCustBar(); renderCustScatter(); renderCustTable(); renderPareto(); };
   document.getElementById('custSortBy').onchange = renderCustTable;
   renderCustKPI();
   renderCustBar(); renderCustScatter(); renderCustTable();
@@ -795,8 +805,8 @@ function initProdTab() {
   chProdScatter = echarts.init(document.getElementById('chProdScatter'));
   chProdSunburst = echarts.init(document.getElementById('chProdSunburst'));
   const sel = document.getElementById('prodYearFilter');
-  sel.innerHTML = (D.years||[]).map(y => '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>').join('');
-  sel.onchange = () => { renderProdBar(); renderProdScatter(); renderProdSunburst(); renderProdTable(); };
+  sel.innerHTML = (D.years||[]).map(y => '<option value="'+y+'" '+(y===(globalYear||D.cy)?'selected':'')+'>'+y+' 年</option>').join('');
+  sel.onchange = () => { setGlobalYear(sel.value); renderProdBar(); renderProdScatter(); renderProdSunburst(); renderProdTable(); };
   renderProdBar(); renderProdScatter(); renderProdSunburst(); renderProdTable();
 }
 
@@ -963,8 +973,8 @@ function initCatTab() {
   chCatPie = echarts.init(document.getElementById('chCatPie'));
   // Year filter
   var cyf = document.getElementById('catYearFilter');
-  cyf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>'; }).join('');
-  cyf.onchange = function(){ renderCatKPIs(); renderCatBar(); renderCatPie(); renderCatMonthly(); renderCatStructure(); renderCatTable(); };
+  cyf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===(globalYear||D.cy)?'selected':'')+'>'+y+' 年</option>'; }).join('');
+  cyf.onchange = function(){ setGlobalYear(cyf.value); renderCatKPIs(); renderCatBar(); renderCatPie(); renderCatMonthly(); renderCatStructure(); renderCatTable(); };
   renderCatKPIs(); renderCatBar(); renderCatPie(); renderCatMonthly(); renderCatStructure(); renderCatTable();
 }
 
@@ -1206,8 +1216,8 @@ function initDeptTab() {
   chDeptCustBar = echarts.init(document.getElementById('chDeptCustBar'));
   chDeptCustPie = echarts.init(document.getElementById('chDeptCustPie'));
   var dyf = document.getElementById('deptYearFilter');
-  dyf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>'; }).join('');
-  dyf.onchange = function(){ renderDeptKPIs(); renderDeptMonthly(); renderDeptYearly(); renderDeptCustBar(); renderDeptCustPie(); renderDeptCustTable(); };
+  dyf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===(globalYear||D.cy)?'selected':'')+'>'+y+' 年</option>'; }).join('');
+  dyf.onchange = function(){ setGlobalYear(dyf.value); renderDeptKPIs(); renderDeptMonthly(); renderDeptYearly(); renderDeptCustBar(); renderDeptCustPie(); renderDeptCustTable(); };
   var dcf = document.getElementById('deptCustFilter');
   dcf.innerHTML = depts.map(function(d){ return '<option value="'+d.name+'">'+d.name+'</option>'; }).join('');
   dcf.onchange = function(){ renderDeptCustBar(); renderDeptCustPie(); renderDeptCustTable(); };
@@ -1456,8 +1466,8 @@ function initSpTab() {
   chSpBar = echarts.init(document.getElementById('chSpBar'));
   chSpScatter = echarts.init(document.getElementById('chSpScatter'));
   const sel = document.getElementById('spYearFilter');
-  sel.innerHTML = (D.years||[]).map(y => '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>').join('');
-  sel.onchange = () => { renderSpKPIs(); renderSpBar(); renderSpScatter(); renderSpTable(); };
+  sel.innerHTML = (D.years||[]).map(y => '<option value="'+y+'" '+(y===(globalYear||D.cy)?'selected':'')+'>'+y+' 年</option>').join('');
+  sel.onchange = () => { setGlobalYear(sel.value); renderSpKPIs(); renderSpBar(); renderSpScatter(); renderSpTable(); };
   document.getElementById('spSortBy').onchange = renderSpTable;
   renderSpKPIs(); renderSpBar(); renderSpScatter(); renderSpTable();
 }
@@ -1666,8 +1676,8 @@ function initBrandTab() {
   chBrandBar = echarts.init(document.getElementById('chBrandBar'));
   chBrandPie = echarts.init(document.getElementById('chBrandPie'));
   var byf = document.getElementById('brandYearFilter');
-  byf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>'; }).join('');
-  byf.onchange = function(){ renderBrandKPIs(); renderBrandBar(); renderBrandPie(); renderBrandMonthly(); renderBrandGP(); renderBrandTable(); };
+  byf.innerHTML = (D.years||[]).map(function(y){ return '<option value="'+y+'" '+(y===(globalYear||D.cy)?'selected':'')+'>'+y+' 年</option>'; }).join('');
+  byf.onchange = function(){ setGlobalYear(byf.value); renderBrandKPIs(); renderBrandBar(); renderBrandPie(); renderBrandMonthly(); renderBrandGP(); renderBrandTable(); };
   renderBrandKPIs(); renderBrandBar(); renderBrandPie(); renderBrandMonthly(); renderBrandGP(); renderBrandTable();
 }
 
@@ -2020,8 +2030,8 @@ function renderKPI(yr) {
 }
 function populateYearFilter() {
   const sel = document.getElementById('yearFilter');
-  sel.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===D.cy?'selected':''}>${y} 年</option>`).join('');
-  sel.onchange = function(){ renderKPI(parseInt(this.value)); renderYearly(); renderSunbursts(); };
+  sel.innerHTML = (D.years||[]).map(y => `<option value="${y}" ${y===(globalYear||D.cy)?'selected':''}>${y} 年</option>`).join('');
+  sel.onchange = function(){ setGlobalYear(this.value); renderKPI(parseInt(this.value)); renderYearly(); renderSunbursts(); };
 }
 
 // ---- Charts ----
@@ -2161,7 +2171,7 @@ function renderSunbursts() {
 function renderCustRevenue() {
   var tf = document.getElementById('treemapYearFilter');
   if (!tf.options.length) {
-    tf.innerHTML = (D.years||[]).map(function(y){return '<option value="'+y+'" '+(y===D.cy?'selected':'')+'>'+y+' 年</option>';}).join('');
+    tf.innerHTML = (D.years||[]).map(function(y){return '<option value="'+y+'" '+(y===(globalYear||D.cy)?'selected':'')+'>'+y+' 年</option>';}).join('');
     var df2=document.getElementById('treemapDeptFilter');
     df2.innerHTML='<option value="all">全部部门</option>'+(D.departments||[]).map(function(d){return '<option value="'+d.name+'">'+d.name+'</option>';}).join('');
   }
@@ -2300,6 +2310,7 @@ var __exportMode = false;
 // These now run inside init() after IndexedDB loads D
 function startCharts(){
   if (!D.cy) return;
+  globalYear = D.cy;
   renderKPI(D.cy);
   populateYearFilter();
   initCharts();

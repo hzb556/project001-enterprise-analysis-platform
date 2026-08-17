@@ -247,7 +247,7 @@ tr:hover td{background:#1e1e40}
 <script>
 var D = {}, R = [], REPORT_ID = '', __exportMode = false;
 (async function init(){
-  var r = await loadReport();
+  var r = window.__REPORT_DATA__ || (typeof loadReport !== 'undefined' ? await loadReport() : null);
   if (r && r.DATA) {
     D = r.DATA; R = r.detailRows||[]; REPORT_ID = r.id||'';
     document.getElementById('lblId').textContent = REPORT_ID;
@@ -726,7 +726,7 @@ function sT(key){if(expenseTable){var s=expenseTable.getSorters();var d='desc';i
 var expenseTable = null;
 function buildExpenseTable(){
   if(expenseTable){expenseTable.destroy();expenseTable=null;}
-  if(!R||R.length===0){document.getElementById('expenseTable').innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">暂无数据</div>';return}
+  if(!R||R.length===0){document.getElementById('expenseTable').innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">'+(window.__REPORT_DATA__&&window.__REPORT_DATA__.detailIncluded===false?'明细数据未导出（原始明细请查看 Excel 或另存 CSV）':'暂无数据')+'</div>';return}
   expenseTable = new Tabulator('#expenseTable',{
     data: R,
     columns: [

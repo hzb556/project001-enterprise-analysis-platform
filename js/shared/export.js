@@ -2,8 +2,12 @@
  * 浏览器端导出工具
  *
  * 支持格式：HTML / CSV / Excel (.xlsx)
- * 下载后自动清除 IndexedDB 缓存
+ * HTML 导出为完全自包含、可交互的离线报告（内嵌库 + 数据 + 脚本）。
+ * 下载后自动清除 IndexedDB 缓存。
  */
+
+// 明细行超过此数时，HTML 导出默认不包含明细（可手动勾选）
+const HTML_DETAIL_ROW_LIMIT = 30000;
 
 // ---- 公开 API ----
 
@@ -19,25 +23,37 @@ async function exportReport(format, report) {
         return;
     }
 
-    const { DATA, detailRows, reportType, fileNames } = report;
+    const { DATA, detailRows, reportType, fileNames, id } = report;
+    const rows = detailRows || [];
     const safeName = sanitizeFilename(fileNames ? fileNames.join('_') : 'report');
     const dateStr = formatDate(new Date());
 
     let blob, filename, mimeType;
 
     switch (format) {
-        case 'html':
-            blob = new Blob([await buildHTML(DATA, detailRows, reportType, fileNames)], { type: 'text/html;charset=utf-8' });
+        case 'html': {
+            // 询问是否包含明细（行数多时默认不包含）
+            const opts = await askHtmlExportOptions(rows.length);
+            if (!opts) return; // 用户取消
+            blob = new Blob([await buildHTML({
+                DATA,
+                detailRows: opts.includeDetail ? rows : [],
+                reportType,
+                fileNames,
+                id,
+                detailIncluded: !!opts.includeDetail,
+            })], { type: 'text/html;charset=utf-8' });
             filename = `${safeName}_${dateStr}.html`;
             mimeType = 'text/html';
             break;
+        }
         case 'csv':
-            blob = buildCSV(detailRows, reportType);
+            blob = buildCSV(rows, reportType);
             filename = `${safeName}_${dateStr}.csv`;
             mimeType = 'text/csv';
             break;
         case 'excel':
-            blob = await buildExcel(DATA, detailRows, reportType);
+            blob = await buildExcel(DATA, rows, reportType);
             filename = `${safeName}_${dateStr}.xlsx`;
             mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
             break;
@@ -58,63 +74,123 @@ async function exportReport(format, report) {
 
 // ---- HTML 导出（完全自包含、可交互）----
 
-async function buildHTML(DATA, rows, reportType, fileNames) {
-    // 1. 读取当前 dashboard 的完整源码（含渲染脚本）
-    var dashFile = reportType === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html';
-    var html = await fetch(dashFile).then(function(r){ return r.text(); });
+/**
+ * 生成自包含 HTML。
+ * 关键点：看板 init 已源码级支持 window.__REPORT_DATA__，这里只需内联库 + 注入数据，
+ * 不再做任何脆弱的字符串替换；任一步失败直接 throw，绝不静默产出空报告。
+ */
+async function buildHTML(report) {
+    const { DATA, detailRows, reportType, fileNames, id, detailIncluded } = report;
+    const dashFile = reportType === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html';
+    const html = await fetch(dashFile).then(function (r) { return r.text(); });
 
-    // 2. 内联所有外部 script（echarts/tabulator/tabulator-builder/storage/export）
-    var scriptRe = /<script src="([^"]+)"><\/script>/g;
-    var scriptMatches = [];
-    var sm;
+    // 1. 内联所有外部 script（echarts/tabulator/...）
+    const scriptRe = /<script src="([^"]+)"><\/script>/g;
+    const scriptMatches = [];
+    let sm;
     while ((sm = scriptRe.exec(html)) !== null) { scriptMatches.push(sm); }
-    for (var i = 0; i < scriptMatches.length; i++) {
-        var src = scriptMatches[i][1];
+    for (let i = 0; i < scriptMatches.length; i++) {
+        const src = scriptMatches[i][1];
+        let js;
         try {
-            var jsContent = await fetch(src).then(function(r){ return r.text(); });
-            // 转义代码里的 <script 和 </script，防止内联时被 HTML 解析器误判为标签
-            jsContent = jsContent.replace(/<(\/?script)/gi, '\\u003c$1');
-            html = html.replace(scriptMatches[i][0], '<script>\n' + jsContent + '\n</script>');
-        } catch(e) {
-            // 读取失败则保留原引用
+            js = await fetch(src).then(function (r) { return r.text(); });
+        } catch (e) {
+            throw new Error('内联脚本失败: ' + src);
         }
+        // 转义代码里的 <script / </script / <!--，防止内联时被 HTML 解析器误判为标签
+        js = js.replace(/<(\/?script|!--)/gi, '\\u003c$1');
+        html = html.replace(scriptMatches[i][0], '<script>\n' + js + '\n</script>');
     }
 
-    // 3. 内联所有外部 CSS
-    var linkRe = /<link href="([^"]+)" rel="stylesheet">/g;
-    var linkMatches = [];
-    var lm;
+    // 2. 内联所有外部 CSS
+    const linkRe = /<link href="([^"]+)" rel="stylesheet">/g;
+    const linkMatches = [];
+    let lm;
     while ((lm = linkRe.exec(html)) !== null) { linkMatches.push(lm); }
-    for (var j = 0; j < linkMatches.length; j++) {
-        var href = linkMatches[j][1];
+    for (let j = 0; j < linkMatches.length; j++) {
+        const href = linkMatches[j][1];
+        let css;
         try {
-            var cssContent = await fetch(href).then(function(r){ return r.text(); });
-            html = html.replace(linkMatches[j][0], '<style>\n' + cssContent + '\n</style>');
-        } catch(e) {
-            // 读取失败则保留原引用
+            css = await fetch(href).then(function (r) { return r.text(); });
+        } catch (e) {
+            throw new Error('内联样式失败: ' + href);
         }
+        html = html.replace(linkMatches[j][0], '<style>\n' + css + '\n</style>');
     }
 
-    // 4. 注入报告数据（导出模式优先读内嵌数据）
-    // 明细数据用数组数组紧凑格式（省字段名，减半体积），注入时解压还原
-    var cols = rows.length > 0 ? Object.keys(rows[0]) : [];
-    var dataArr = rows.map(function(r){ return cols.map(function(c){ return r[c]; }); });
-    var compactJson = JSON.stringify({ cols: cols, data: dataArr }).replace(/</g, '\\u003c');
-    var metaJson = JSON.stringify({ DATA: DATA, id: 'export', fileNames: fileNames, reportType: reportType }).replace(/</g, '\\u003c');
-
-    var dataScript = '<script>' +
-        'window.__EXPORT_DATA__ = ' + metaJson + ';' +
-        '(function(){var c=' + compactJson + ';window.__EXPORT_DATA__.detailRows=c.data.map(function(r){var o={};for(var i=0;i<c.cols.length;i++)o[c.cols[i]]=r[i];return o;});})();' +
-        '</script>';
-    html = html.replace('</head>', dataScript + '\n</head>');
-
-    // 5. 改造 init 数据加载：优先读内嵌数据
-    html = html.replace(
-        'var r = await loadReport();',
-        'var r = window.__EXPORT_DATA__ || (typeof loadReport !== \'undefined\' ? await loadReport() : null);'
-    );
+    // 3. 注入报告数据（看板 init 优先读 __REPORT_DATA__）
+    const payload = {
+        DATA: DATA,
+        detailRows: detailRows || [],
+        id: id || 'export',
+        fileNames: fileNames || [],
+        reportType: reportType,
+        detailIncluded: !!detailIncluded,
+    };
+    const inject = '<script>\nwindow.__REPORT_DATA__ = ' + safeInlineJSON(payload) + ';\n</script>';
+    const headClose = html.indexOf('</head>');
+    if (headClose === -1) throw new Error('页面结构异常：缺少 </head>');
+    html = html.slice(0, headClose) + inject + '\n' + html.slice(headClose);
 
     return html;
+}
+
+/**
+ * 把对象安全地内联为 JS 字面量：
+ * - 转义 < 防止脚本标签提前闭合 / HTML 注释干扰
+ * - 转义 \u2028 / \u2029（行分隔符，否则 JS 字符串字面量 SyntaxError）
+ */
+function safeInlineJSON(obj) {
+    return JSON.stringify(obj)
+        .replace(/</g, '\\u003c')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
+}
+
+/**
+ * 询问 HTML 导出的明细选项。取消返回 null。
+ */
+function askHtmlExportOptions(rowCount) {
+    return new Promise(function (resolve) {
+        const includeDetail = rowCount <= HTML_DETAIL_ROW_LIMIT;
+        const sizeText = estimateRowsSize(rowCount);
+        const detailText = rowCount > 0
+            ? '明细数据 ' + rowCount.toLocaleString() + ' 行（约 ' + sizeText + '）'
+            : '（当前无明细数据）';
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif';
+        overlay.innerHTML =
+            '<div style="background:#1a1a3a;border:1px solid #2a2a5a;border-radius:12px;padding:24px;min-width:360px;max-width:520px;color:#e0e0f0;box-shadow:0 12px 48px rgba(0,0,0,.5)">' +
+                '<div style="font-size:16px;font-weight:700;margin-bottom:12px">📥 导出 HTML 报告</div>' +
+                '<div style="font-size:13px;color:#a0a8c0;line-height:1.6;margin-bottom:16px">8 个 Tab 的图表与全部分析结果将一并导出，可离线交互。</div>' +
+                '<label style="display:flex;align-items:center;gap:10px;font-size:14px;padding:12px;background:#12122a;border-radius:8px;cursor:pointer">' +
+                    '<input type="checkbox" id="expDetailChk" ' + (includeDetail ? 'checked' : '') + ' style="width:18px;height:18px;flex:0 0 auto">' +
+                    '<span>包含明细数据 <span style="color:#a0a8c0;font-size:12px">' + detailText + '</span></span>' +
+                '</label>' +
+                (rowCount > HTML_DETAIL_ROW_LIMIT ? '<div style="font-size:12px;color:#ffa726;margin-top:8px">⚠️ 明细行较多，导出文件偏大、打开较慢。</div>' : '') +
+                '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">' +
+                    '<button id="expCancel" style="padding:8px 16px;background:#2a2a5a;color:#e0e0f0;border:1px solid #3a3a6a;border-radius:6px;cursor:pointer;font-size:13px">取消</button>' +
+                    '<button id="expGo" style="padding:8px 20px;background:#4caf84;color:#08120c;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700">导出</button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+
+        function close(val) {
+            document.body.removeChild(overlay);
+            resolve(val);
+        }
+        overlay.querySelector('#expCancel').onclick = function () { close(null); };
+        overlay.querySelector('#expGo').onclick = function () { close({ includeDetail: overlay.querySelector('#expDetailChk').checked }); };
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) close(null); });
+    });
+}
+
+function estimateRowsSize(rowCount) {
+    if (!rowCount) return '0 KB';
+    const bytes = rowCount * 200; // 每行约 200 字节（字段名+值），粗估
+    if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
 }
 
 // ---- CSV 导出 ----

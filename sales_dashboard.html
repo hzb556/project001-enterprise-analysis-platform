@@ -349,7 +349,7 @@ tr:hover td { background:#1e1e40; }
 var D = {}, rid = '';
 var __R = [];
 (async function init(){
-  var r = await loadReport();
+  var r = window.__REPORT_DATA__ || (typeof loadReport !== 'undefined' ? await loadReport() : null);
   if (r && r.DATA) {
     D = r.DATA; __R = r.detailRows||[]; rid = r.id||'';
     document.getElementById('lblId').textContent = rid;
@@ -1894,6 +1894,10 @@ let detailFiltered = [], detailPage = 1, detailSortCol = null, detailSortAsc = t
 const detailPageSize = 50;
 
 function initDetailTab() {
+  if (window.__REPORT_DATA__ && window.__REPORT_DATA__.detailIncluded === false) {
+    document.getElementById('detailTableInfo').textContent = '明细数据未导出（原始明细请查看 Excel 或另存 CSV）';
+    return;
+  }
   if (R.length === 0) {
     Promise.resolve({ok:true, json:function(){return Promise.resolve(__R)}}).then(r => r.json()).then(rows => {
       R = rows;

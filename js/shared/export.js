@@ -82,7 +82,7 @@ async function exportReport(format, report) {
 async function buildHTML(report) {
     const { DATA, detailRows, reportType, fileNames, id, detailIncluded } = report;
     const dashFile = reportType === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html';
-    const html = await fetch(dashFile).then(function (r) { return r.text(); });
+    let html = await fetch(dashFile).then(function (r) { return r.text(); });
 
     // 1. 内联所有外部 script（echarts/tabulator/...）
     const scriptRe = /<script src="([^"]+)"><\/script>/g;

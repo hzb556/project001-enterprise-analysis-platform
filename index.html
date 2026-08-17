@@ -683,9 +683,11 @@ async function processWithMapping(files, mapping, tooLarge){
     // Load report from DB via API
     var r = await fetch(API_BASE + '/api/reports/' + json.reportId, { credentials: 'same-origin' });
     var reportData = await r.json();
+    // 解压紧凑格式 detailRows
+    var dRows = decompressRows(reportData.detailRows);
     await saveReport({
       DATA: reportData.DATA,
-      detailRows: reportData.detailRows,
+      detailRows: dRows,
       reportType: currentModule,
       fileNames: [files[0].name],
       id: json.reportId,
@@ -1008,27 +1010,28 @@ document.addEventListener('click', function(e){
   }
 });
 
+// 解压紧凑格式 detailRows（{cols, data} → 对象数组）
+function decompressRows(detailRows) {
+  if (detailRows && detailRows.cols) {
+    var cols = detailRows.cols;
+    return detailRows.data.map(function(row){
+      var o = {};
+      for (var i = 0; i < cols.length; i++) o[cols[i]] = row[i];
+      return o;
+    });
+  }
+  return detailRows || [];
+}
+
 async function openReport(id){
   showLoading('正在加载报告...');
   try {
     var resp = await fetch(API_BASE + '/api/reports/' + id, { credentials: 'same-origin' });
     if (!resp.ok) throw new Error('加载失败');
     var r = await resp.json();
-    // 解压紧凑格式 detailRows
-    var rows = [];
-    if (r.detailRows && r.detailRows.cols) {
-      var cols = r.detailRows.cols;
-      rows = r.detailRows.data.map(function(row){
-        var o = {};
-        for (var i = 0; i < cols.length; i++) o[cols[i]] = row[i];
-        return o;
-      });
-    } else {
-      rows = r.detailRows || [];
-    }
     await saveReport({
       DATA: r.DATA,
-      detailRows: rows,
+      detailRows: decompressRows(r.detailRows),
       reportType: r.report_type,
       fileNames: [r.report_name],
       id: r.id,

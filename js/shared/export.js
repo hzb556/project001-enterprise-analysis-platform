@@ -94,8 +94,10 @@ async function buildHTML(DATA, rows, reportType, fileNames) {
     }
 
     // 4. 注入报告数据（导出模式优先读内嵌数据）
+    // 把所有 < 转义为 <，防止数据里的 </script> 提前关闭 script 标签
     var embed = { DATA: DATA, detailRows: rows, id: 'export', fileNames: fileNames, reportType: reportType };
-    var dataScript = '<script>window.__EXPORT_DATA__ = ' + JSON.stringify(embed) + ';</script>';
+    var jsonStr = JSON.stringify(embed).replace(/</g, '\\u003c');
+    var dataScript = '<script>window.__EXPORT_DATA__ = ' + jsonStr + ';</script>';
     html = html.replace('</head>', dataScript + '\n</head>');
 
     // 5. 改造 init 数据加载：优先读内嵌数据

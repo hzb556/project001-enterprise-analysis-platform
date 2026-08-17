@@ -157,7 +157,7 @@ def create_app(config=None):
             'report_type': r.report_type,
             'report_name': r.report_name,
             'DATA': r.get_data(),
-            'detailRows': r.get_rows(),
+            'detailRows': r.get_rows_compact(),
             'file_count': r.file_count,
             'row_count': r.row_count,
             'created_at': r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '',

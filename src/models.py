@@ -89,7 +89,13 @@ class Report(db.Model):
 
     def set_data(self, data, rows):
         self.data_json = json.dumps(data, ensure_ascii=False)
-        self.rows_json = json.dumps(rows, ensure_ascii=False)
+        # 明细行用数组数组紧凑格式存储（省字段名，减半体积）
+        if rows and isinstance(rows, list) and len(rows) > 0:
+            cols = list(rows[0].keys())
+            data_arr = [[r.get(c) for c in cols] for r in rows]
+            self.rows_json = json.dumps({'cols': cols, 'data': data_arr}, ensure_ascii=False)
+        else:
+            self.rows_json = json.dumps({'cols': [], 'data': []}, ensure_ascii=False)
 
     def get_data(self):
         try:
@@ -97,9 +103,28 @@ class Report(db.Model):
         except Exception:
             return {}
 
-    def get_rows(self):
+    def get_rows_compact(self):
+        """返回紧凑格式 {cols: [...], data: [[...]]}，用于 API 传输"""
         try:
-            return json.loads(self.rows_json) if self.rows_json else []
+            raw = json.loads(self.rows_json) if self.rows_json else {'cols': [], 'data': []}
+            if isinstance(raw, dict) and 'cols' in raw:
+                return raw
+            # 兼容旧格式（对象数组）
+            if isinstance(raw, list) and len(raw) > 0:
+                cols = list(raw[0].keys())
+                return {'cols': cols, 'data': [[r.get(c) for c in cols] for r in raw]}
+            return {'cols': [], 'data': []}
+        except Exception:
+            return {'cols': [], 'data': []}
+
+    def get_rows(self):
+        """返回对象数组（解压），兼容旧逻辑"""
+        try:
+            raw = json.loads(self.rows_json) if self.rows_json else []
+            if isinstance(raw, dict) and 'cols' in raw:
+                cols = raw['cols']
+                return [{cols[i]: r[i] for i in range(len(cols))} for r in raw['data']]
+            return raw
         except Exception:
             return []
 

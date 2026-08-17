@@ -56,67 +56,55 @@ async function exportReport(format, report) {
     showDownloadToast(format, filename);
 }
 
-// ---- HTML 导出（视觉绝对一致的静态快照）----
+// ---- HTML 导出（完全自包含、可交互）----
 
 async function buildHTML(DATA, rows, reportType, fileNames) {
-    var clone = document.documentElement.cloneNode(true);
+    // 1. 读取当前 dashboard 的完整源码（含渲染脚本）
+    var dashFile = reportType === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html';
+    var html = await fetch(dashFile).then(function(r){ return r.text(); });
 
-    // 1. 移除操作按钮（导出/保存/清除/返回）
-    var topbar = clone.querySelector('.topbar');
-    if (topbar) {
-        var actions = topbar.querySelectorAll('a, button');
-        actions.forEach(function(el){
-            var txt = el.textContent || '';
-            if (txt.includes('导出') || txt.includes('保存') || txt.includes('清除') || txt.includes('返回')) {
-                el.parentNode.removeChild(el);
-            }
-        });
-    }
-
-    // 2. 图表 canvas 转 base64 图片（canvas 克隆后是空白的）
-    var chartDivs = clone.querySelectorAll('.chart-box, .chart-box-sm');
-    chartDivs.forEach(function(div){
-        var id = div.id;
-        if (id && typeof echarts !== 'undefined') {
-            var inst = echarts.getInstanceByDom(document.getElementById(id));
-            if (inst) {
-                var img = document.createElement('img');
-                img.src = inst.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#16162e' });
-                img.style.cssText = 'width:100%;height:' + (div.offsetHeight || 380) + 'px;object-fit:contain;';
-                div.innerHTML = '';
-                div.appendChild(img);
-            }
-        }
-    });
-
-    // 3. 内联所有外部 CSS（本地打开不丢样式）
-    var links = clone.querySelectorAll('link[rel="stylesheet"]');
-    for (var li = 0; li < links.length; li++) {
-        var href = links[li].getAttribute('href');
-        if (!href) continue;
+    // 2. 内联所有外部 script（echarts/tabulator/tabulator-builder/storage/export）
+    var scriptRe = /<script src="([^"]+)"><\/script>/g;
+    var scriptMatches = [];
+    var sm;
+    while ((sm = scriptRe.exec(html)) !== null) { scriptMatches.push(sm); }
+    for (var i = 0; i < scriptMatches.length; i++) {
+        var src = scriptMatches[i][1];
         try {
-            var cssText = await fetch(href).then(function(r){ return r.text(); });
-            var style = document.createElement('style');
-            style.textContent = cssText;
-            links[li].parentNode.replaceChild(style, links[li]);
+            var jsContent = await fetch(src).then(function(r){ return r.text(); });
+            html = html.replace(scriptMatches[i][0], '<script>\n' + jsContent + '\n</script>');
         } catch(e) {
-            // 取不到就保留原 link
+            // 读取失败则保留原引用
         }
     }
 
-    // 4. 移除所有脚本（图表已转图片，避免外部依赖路径失效报错）
-    var scripts = clone.querySelectorAll('script');
-    scripts.forEach(function(s){ s.parentNode.removeChild(s); });
+    // 3. 内联所有外部 CSS
+    var linkRe = /<link href="([^"]+)" rel="stylesheet">/g;
+    var linkMatches = [];
+    var lm;
+    while ((lm = linkRe.exec(html)) !== null) { linkMatches.push(lm); }
+    for (var j = 0; j < linkMatches.length; j++) {
+        var href = linkMatches[j][1];
+        try {
+            var cssContent = await fetch(href).then(function(r){ return r.text(); });
+            html = html.replace(linkMatches[j][0], '<style>\n' + cssContent + '\n</style>');
+        } catch(e) {
+            // 读取失败则保留原引用
+        }
+    }
 
-    // 5. 加导出信息头
-    var title = reportType === 'sales' ? '📈 销售分析报告' : '📊 费用分析报告';
-    var info = document.createElement('div');
-    info.style.cssText = 'text-align:center;color:#a0a8c0;font-size:11px;padding:8px;border-bottom:1px solid #1e1e40;margin-bottom:12px';
-    info.textContent = title + ' | ' + (fileNames||['-']).join(', ') + ' | 导出时间: ' + new Date().toLocaleString('zh-CN');
-    var main = clone.querySelector('.main');
-    if (main) main.insertBefore(info, main.firstChild);
+    // 4. 注入报告数据（导出模式优先读内嵌数据）
+    var embed = { DATA: DATA, detailRows: rows, id: 'export', fileNames: fileNames, reportType: reportType };
+    var dataScript = '<script>window.__EXPORT_DATA__ = ' + JSON.stringify(embed) + ';</script>';
+    html = html.replace('</head>', dataScript + '\n</head>');
 
-    return '<!DOCTYPE html>\n' + clone.outerHTML;
+    // 5. 改造 init 数据加载：优先读内嵌数据
+    html = html.replace(
+        'var r = await loadReport();',
+        'var r = window.__EXPORT_DATA__ || (typeof loadReport !== \'undefined\' ? await loadReport() : null);'
+    );
+
+    return html;
 }
 
 // ---- CSV 导出 ----

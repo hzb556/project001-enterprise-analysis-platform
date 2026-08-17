@@ -94,10 +94,16 @@ async function buildHTML(DATA, rows, reportType, fileNames) {
     }
 
     // 4. 注入报告数据（导出模式优先读内嵌数据）
-    // 把所有 < 转义为 <，防止数据里的 </script> 提前关闭 script 标签
-    var embed = { DATA: DATA, detailRows: rows, id: 'export', fileNames: fileNames, reportType: reportType };
-    var jsonStr = JSON.stringify(embed).replace(/</g, '\\u003c');
-    var dataScript = '<script>window.__EXPORT_DATA__ = ' + jsonStr + ';</script>';
+    // 明细数据用数组数组紧凑格式（省字段名，减半体积），注入时解压还原
+    var cols = rows.length > 0 ? Object.keys(rows[0]) : [];
+    var dataArr = rows.map(function(r){ return cols.map(function(c){ return r[c]; }); });
+    var compactJson = JSON.stringify({ cols: cols, data: dataArr }).replace(/</g, '\\u003c');
+    var metaJson = JSON.stringify({ DATA: DATA, id: 'export', fileNames: fileNames, reportType: reportType }).replace(/</g, '\\u003c');
+
+    var dataScript = '<script>' +
+        'window.__EXPORT_DATA__ = ' + metaJson + ';' +
+        '(function(){var c=' + compactJson + ';window.__EXPORT_DATA__.detailRows=c.data.map(function(r){var o={};for(var i=0;i<c.cols.length;i++)o[c.cols[i]]=r[i];return o;});})();' +
+        '</script>';
     html = html.replace('</head>', dataScript + '\n</head>');
 
     // 5. 改造 init 数据加载：优先读内嵌数据

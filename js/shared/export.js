@@ -84,7 +84,22 @@ async function buildHTML(report) {
     const dashFile = reportType === 'sales' ? 'sales_dashboard.html' : 'expense_dashboard.html';
     let html = await fetch(dashFile).then(function (r) { return r.text(); });
 
-    // 1. 内联所有外部 script（echarts/tabulator/...）
+    // 1. 先注入报告数据。此时 html 还是原始看板，只有一处 </head>，
+    //    不会被内联脚本源码里的 </head>（如 html.indexOf('</head>')）干扰定位。
+    const payload = {
+        DATA: DATA,
+        detailRows: detailRows || [],
+        id: id || 'export',
+        fileNames: fileNames || [],
+        reportType: reportType,
+        detailIncluded: !!detailIncluded,
+    };
+    const inject = '<script>\nwindow.__REPORT_DATA__ = ' + safeInlineJSON(payload) + ';\n</script>';
+    const headClose = html.indexOf('</head>');
+    if (headClose === -1) throw new Error('页面结构异常：缺少 </head>');
+    html = html.slice(0, headClose) + inject + '\n' + html.slice(headClose);
+
+    // 2. 内联所有外部 script（echarts/tabulator/...）
     const scriptRe = /<script src="([^"]+)"><\/script>/g;
     const scriptMatches = [];
     let sm;
@@ -102,7 +117,7 @@ async function buildHTML(report) {
         html = html.replace(scriptMatches[i][0], '<script>\n' + js + '\n</script>');
     }
 
-    // 2. 内联所有外部 CSS
+    // 3. 内联所有外部 CSS
     const linkRe = /<link href="([^"]+)" rel="stylesheet">/g;
     const linkMatches = [];
     let lm;
@@ -117,20 +132,6 @@ async function buildHTML(report) {
         }
         html = html.replace(linkMatches[j][0], '<style>\n' + css + '\n</style>');
     }
-
-    // 3. 注入报告数据（看板 init 优先读 __REPORT_DATA__）
-    const payload = {
-        DATA: DATA,
-        detailRows: detailRows || [],
-        id: id || 'export',
-        fileNames: fileNames || [],
-        reportType: reportType,
-        detailIncluded: !!detailIncluded,
-    };
-    const inject = '<script>\nwindow.__REPORT_DATA__ = ' + safeInlineJSON(payload) + ';\n</script>';
-    const headClose = html.indexOf('</head>');
-    if (headClose === -1) throw new Error('页面结构异常：缺少 </head>');
-    html = html.slice(0, headClose) + inject + '\n' + html.slice(headClose);
 
     return html;
 }

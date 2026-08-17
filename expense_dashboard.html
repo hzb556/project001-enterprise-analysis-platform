@@ -255,6 +255,7 @@ var D = {}, R = [], REPORT_ID = '', __exportMode = false;
     document.getElementById('loadOverlay').classList.remove('done');
     document.getElementById('loadSub').textContent = R.length + ' 条记录加载中';
   }
+  await Promise.resolve(); // 让 main 在整段脚本（含所有 let 声明）解析后执行，避免 TDZ 报错
   main();
 })();
 var tp=1,PS=20,sk='amt',sd=-1;

@@ -355,6 +355,7 @@ var __R = [];
     document.getElementById('lblId').textContent = rid;
     document.getElementById('topName').textContent = (r.fileNames||['-']).join(', ');
   }
+  await Promise.resolve(); // 让 startCharts 在整段脚本（含所有 let 声明）解析后执行，避免 TDZ 报错
   startCharts();
 })();
 let R = [];

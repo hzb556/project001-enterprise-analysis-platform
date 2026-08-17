@@ -72,6 +72,8 @@ async function buildHTML(DATA, rows, reportType, fileNames) {
         var src = scriptMatches[i][1];
         try {
             var jsContent = await fetch(src).then(function(r){ return r.text(); });
+            // 转义代码里的 </script> 防止内联时提前关闭标签
+            jsContent = jsContent.replace(/<\/script>/gi, '<\\/script>');
             html = html.replace(scriptMatches[i][0], '<script>\n' + jsContent + '\n</script>');
         } catch(e) {
             // 读取失败则保留原引用

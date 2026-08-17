@@ -27,7 +27,7 @@ async function exportReport(format, report) {
 
     switch (format) {
         case 'html':
-            blob = new Blob([buildHTML(DATA, detailRows, reportType, fileNames)], { type: 'text/html;charset=utf-8' });
+            blob = new Blob([await buildHTML(DATA, detailRows, reportType, fileNames)], { type: 'text/html;charset=utf-8' });
             filename = `${safeName}_${dateStr}.html`;
             mimeType = 'text/html';
             break;
@@ -56,12 +56,12 @@ async function exportReport(format, report) {
     showDownloadToast(format, filename);
 }
 
-// ---- HTML 导出（整个页面原样保存）----
+// ---- HTML 导出（视觉绝对一致的静态快照）----
 
-function buildHTML(DATA, rows, reportType, fileNames) {
+async function buildHTML(DATA, rows, reportType, fileNames) {
     var clone = document.documentElement.cloneNode(true);
 
-    // Only remove the topbar action buttons (export/save/clear), keep everything else
+    // 1. 移除操作按钮（导出/保存/清除/返回）
     var topbar = clone.querySelector('.topbar');
     if (topbar) {
         var actions = topbar.querySelectorAll('a, button');
@@ -73,7 +73,42 @@ function buildHTML(DATA, rows, reportType, fileNames) {
         });
     }
 
-    // Add export info at top
+    // 2. 图表 canvas 转 base64 图片（canvas 克隆后是空白的）
+    var chartDivs = clone.querySelectorAll('.chart-box, .chart-box-sm');
+    chartDivs.forEach(function(div){
+        var id = div.id;
+        if (id && typeof echarts !== 'undefined') {
+            var inst = echarts.getInstanceByDom(document.getElementById(id));
+            if (inst) {
+                var img = document.createElement('img');
+                img.src = inst.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#16162e' });
+                img.style.cssText = 'width:100%;height:' + (div.offsetHeight || 380) + 'px;object-fit:contain;';
+                div.innerHTML = '';
+                div.appendChild(img);
+            }
+        }
+    });
+
+    // 3. 内联所有外部 CSS（本地打开不丢样式）
+    var links = clone.querySelectorAll('link[rel="stylesheet"]');
+    for (var li = 0; li < links.length; li++) {
+        var href = links[li].getAttribute('href');
+        if (!href) continue;
+        try {
+            var cssText = await fetch(href).then(function(r){ return r.text(); });
+            var style = document.createElement('style');
+            style.textContent = cssText;
+            links[li].parentNode.replaceChild(style, links[li]);
+        } catch(e) {
+            // 取不到就保留原 link
+        }
+    }
+
+    // 4. 移除所有脚本（图表已转图片，避免外部依赖路径失效报错）
+    var scripts = clone.querySelectorAll('script');
+    scripts.forEach(function(s){ s.parentNode.removeChild(s); });
+
+    // 5. 加导出信息头
     var title = reportType === 'sales' ? '📈 销售分析报告' : '📊 费用分析报告';
     var info = document.createElement('div');
     info.style.cssText = 'text-align:center;color:#a0a8c0;font-size:11px;padding:8px;border-bottom:1px solid #1e1e40;margin-bottom:12px';

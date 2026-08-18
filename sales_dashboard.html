@@ -338,9 +338,8 @@ tr:hover td { background:#1e1e40; }
     <div class="chart-panel">
       <h3 style="margin-bottom:12px;">📋 销售明细</h3>
       <div class="table-wrap">
-        <table id="detailDataTable"><thead></thead><tbody></tbody></table>
+        <div id="detailDataTable"></div>
       </div>
-      <div class="pagination" id="detailPagination"></div>
     </div>
   </div>
 </div>
@@ -711,6 +710,7 @@ switchTab = function(name) {
     if (name === 'dept' && deptTabReady) [chDeptMonthly, chDeptYearly, chDeptCustBar, chDeptCustPie].forEach(c => c && c.resize());
     if (name === 'salesperson' && spTabReady) [chSpBar, chSpScatter].forEach(c => c && c.resize());
     if (name === 'brand' && brandTabReady) [chBrandMonthly, chBrandGP, chBrandBar, chBrandPie].forEach(c => c && c.resize());
+    if (name === 'detail' && detailTable) detailTable.redraw(true);
   }, 100);
 };
 // Re-bind tab bar clicks
@@ -1891,8 +1891,8 @@ function toggleBrandDrill(name, el) {
 // ================================================================
 // DETAIL TAB
 // ================================================================
-let detailFiltered = [], detailPage = 1, detailSortCol = null, detailSortAsc = true;
-const detailPageSize = 50;
+let detailFiltered = [];
+let detailTable = null;
 
 function initDetailTab() {
   if (window.__REPORT_DATA__ && window.__REPORT_DATA__.detailIncluded === false) {
@@ -1940,58 +1940,32 @@ function filterDetailTable() {
     if (df !== 'all' && (r.dept||'未知') !== df) return false;
     return true;
   });
-  detailPage = 1;
-  renderDetailTable();
+  if (detailTable) detailTable.setData(detailFiltered);
+  else buildDetailTable();
 }
 
-function renderDetailTable() {
-  const totalPages = Math.ceil(detailFiltered.length/detailPageSize)||1;
-  const page = detailFiltered.slice((detailPage-1)*detailPageSize, detailPage*detailPageSize);
-  document.getElementById('detailTableInfo').textContent = '共 '+detailFiltered.length+' 条，第 '+detailPage+'/'+totalPages+' 页';
-  const cols = ['ym','customer','product','cat','dept','channel','sp','qty','price','amt','cost','gp'];
-  const labels = ['年月','客户','产品','类别','部门','渠道','销售员','数量','单价','金额','成本','毛利'];
-  const thead = '<tr>'+labels.map((l,i) => '<th onclick="sortDetailTable(\''+cols[i]+'\')">'+l+'</th>').join('')+'</tr>';
-  const tbody = page.map(r => '<tr>'+cols.map(c => {
-    const v = r[c]!=null?r[c]:'';
-    if (typeof v === 'number') return '<td>'+(c==='amt'||c==='cost'||c==='gp'?v.toFixed(2):v)+'</td>';
-    return '<td>'+v+'</td>';
-  }).join('')+'</tr>').join('');
-  document.querySelector('#detailDataTable thead').innerHTML = thead;
-  document.querySelector('#detailDataTable tbody').innerHTML = tbody;
-  const pag = document.getElementById('detailPagination');
-  if (totalPages <= 1) { pag.innerHTML = ''; return; }
-  let html = '<button '+(detailPage===1?'disabled':'')+' onclick="detailGoPage('+(detailPage-1)+')">‹</button>';
-  for (let i=1; i<=totalPages; i++) html += '<button onclick="detailGoPage('+i+')" style="'+(i===detailPage?'background:var(--blue);color:#000;':'')+'">'+i+'</button>';
-  html += '<button '+(detailPage===totalPages?'disabled':'')+' onclick="detailGoPage('+(detailPage+1)+')">›</button>';
-  pag.innerHTML = html;
+function buildDetailTable() {
+  if (detailTable) { detailTable.destroy(); detailTable = null; }
+  detailTable = buildTable('#detailDataTable', detailFiltered, [
+    {title:'年月', field:'ym', width:90, sorter:'string'},
+    {title:'客户', field:'customer', sorter:'string', headerFilter:true},
+    {title:'产品', field:'product', sorter:'string', headerFilter:true},
+    {title:'类别', field:'cat', sorter:'string', headerFilter:true},
+    {title:'部门', field:'dept', sorter:'string', headerFilter:true},
+    {title:'渠道', field:'channel', sorter:'string', headerFilter:true},
+    {title:'销售员', field:'sp', sorter:'string', headerFilter:true},
+    {title:'数量', field:'qty', sorter:'number', hozAlign:'right'},
+    {title:'单价', field:'price', sorter:'number', hozAlign:'right', formatter:'money'},
+    {title:'金额', field:'amt', sorter:'number', hozAlign:'right', formatter:'money', bottomCalc:'sum', bottomCalcFormatter:'money'},
+    {title:'成本', field:'cost', sorter:'number', hozAlign:'right', formatter:'money', bottomCalc:'sum', bottomCalcFormatter:'money'},
+    {title:'毛利', field:'gp', sorter:'number', hozAlign:'right', formatter:'money', bottomCalc:'sum', bottomCalcFormatter:'money'},
+  ], { height: 440, paginationSize: 50 });
 }
-
-function sortDetailTable(col) {
-  if (detailSortCol === col) detailSortAsc = !detailSortAsc;
-  else { detailSortCol = col; detailSortAsc = true; }
-  detailFiltered.sort((a,b) => {
-    const va = a[col]!=null?a[col]:'', vb = b[col]!=null?b[col]:'';
-    if (typeof va === 'number') return detailSortAsc ? va-vb : vb-va;
-    return detailSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
-  });
-  detailPage = 1;
-  renderDetailTable();
-}
-
-function detailGoPage(p) { detailPage = p; renderDetailTable(); }
 
 function exportDetailCSV() {
-  const rows = detailFiltered.length ? detailFiltered : R;
-  if (!rows.length) return;
-  const cols = ['ym','customer','product','cat','dept','channel','sp','qty','price','amt','cost','gp'];
-  const labels = ['年月','客户','产品','类别','部门','渠道','销售员','数量','单价','金额','成本','毛利'];
-  let csv = labels.join(',') + '\\n';
-  rows.forEach(r => { csv += cols.map(c => { const v = r[c]!=null?r[c]:''; return typeof v==='string'&&v.includes(',')?'"'+v+'"':v; }).join(',') + '\\n'; });
-  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='销售明细.csv'; a.click();
-  URL.revokeObjectURL(url);
+  if (detailTable) detailTable.download('csv', '销售明细.csv');
 }
+
 
 // ---- Init ----
 async function loadRows() {

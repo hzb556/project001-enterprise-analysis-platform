@@ -728,34 +728,25 @@ var expenseTable = null;
 function buildExpenseTable(){
   if(expenseTable){expenseTable.destroy();expenseTable=null;}
   if(!R||R.length===0){document.getElementById('expenseTable').innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">'+(window.__REPORT_DATA__&&window.__REPORT_DATA__.detailIncluded===false?'明细数据未导出（原始明细请查看 Excel 或另存 CSV）':'暂无数据')+'</div>';return}
-  expenseTable = new Tabulator('#expenseTable',{
-    data: R,
-    columns: [
-      {title:'年', field:'y', width:55, sorter:'number', headerFilter:true, headerFilterFunc:'=', headerFilterPlaceholder:'年'},
-      {title:'月', field:'m', width:50, sorter:'number', headerFilter:true, headerFilterFunc:'=', headerFilterPlaceholder:'月'},
-      {title:'科目', field:'sn', width:90, sorter:'string', headerFilter:true, headerFilterPlaceholder:'筛选'},
-      {title:'部门', field:'did', width:80, sorter:'string', headerFilter:true, headerFilterPlaceholder:'筛选'},
-      {title:'核算项目', field:'cat', width:110, sorter:'string', headerFilter:true, headerFilterPlaceholder:'筛选'},
-      {title:'摘要', field:'summ', sorter:'string', headerFilter:true, headerFilterPlaceholder:'搜索',
-        formatter:function(cell){var v=cell.getValue();return '<span title="'+v+'">'+v+'</span>';}},
-      {title:'金额', field:'amt', width:120, sorter:'number', hozAlign:'right',
-        formatter:function(cell){return cell.getValue().toLocaleString('zh-CN');},
-        bottomCalc:'sum',
-        bottomCalcFormatter:function(cell){var v=cell.getValue();return '<b>合计: ¥'+(v/10000).toFixed(1)+'万</b>';}},
-    ],
-    layout:'fitColumns', height:440, maxHeight:500,
-    pagination:true, paginationSize:25, paginationSizeSelector:[15,25,50,100],
-    paginationCounter:'rows', movableColumns:true, placeholder:'无匹配数据',
-    initialSort:[{column:'amt',dir:'desc'}],
+  expenseTable = buildTable('#expenseTable', R, [
+    {title:'年', field:'y', width:55, sorter:'number', headerFilter:true, headerFilterFunc:'=', headerFilterPlaceholder:'年'},
+    {title:'月', field:'m', width:50, sorter:'number', headerFilter:true, headerFilterFunc:'=', headerFilterPlaceholder:'月'},
+    {title:'科目', field:'sn', width:90, sorter:'string', headerFilter:true, headerFilterPlaceholder:'筛选'},
+    {title:'部门', field:'did', width:80, sorter:'string', headerFilter:true, headerFilterPlaceholder:'筛选'},
+    {title:'核算项目', field:'cat', width:110, sorter:'string', headerFilter:true, headerFilterPlaceholder:'筛选'},
+    {title:'摘要', field:'summ', sorter:'string', headerFilter:true, headerFilterPlaceholder:'搜索',
+      formatter:function(cell){var v=cell.getValue();return '<span title="'+v+'">'+v+'</span>';}},
+    {title:'金额', field:'amt', width:120, sorter:'number', hozAlign:'right', formatter:'money',
+      bottomCalc:'sum', bottomCalcFormatter:function(cell){var v=cell.getValue();return '<b>合计: ¥'+(v/10000).toFixed(1)+'万</b>';}},
+  ], {
+    height: 440,
+    paginationSize: 25,
+    paginationSizeSelector: [15,25,50,100],
+    placeholder: '无匹配数据',
+    initialSort: [{column:'amt', dir:'desc'}],
   });
 }
 function expCSV(){if(expenseTable)expenseTable.download('csv','费用明细导出.csv');}
-function expCSV(){
-  if(R.length===0)return;
-  var ty=document.getElementById('ty').value,tm=document.getElementById('tm').value,ts=document.getElementById('ts').value,td=document.getElementById('td').value,tq=(document.getElementById('tq').value||'').toLowerCase();
-  var rows=fs.filter(function(r){if(ty!=='all'&&r.y!==parseInt(ty))return false;if(tm!=='all'&&r.m!==parseInt(tm))return false;if(ts!=='all'&&r.sn!==ts)return false;if(td!=='all'&&r.did!==td)return false;if(tq&&r.summ.toLowerCase().indexOf(tq)===-1&&r.cat.toLowerCase().indexOf(tq)===-1)return false;return true});
-  var csv='﻿年,月,科目,部门,核算项目,摘要,金额\n';rows.forEach(function(r){csv+=r.y+','+r.m+','+r.sn+','+r.did+','+r.cat+',"'+r.summ.replace(/"/g,'""')+'",'+r.amt+'\n'});var b=new Blob([csv],{type:'text/csv;charset=utf-8;'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='费用明细导出.csv';a.click();URL.revokeObjectURL(a.href);
-}
 
 // ---- DIAGNOSTICS ----
 // Delayed: data loads from IndexedDB asynchronously

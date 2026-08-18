@@ -1944,21 +1944,26 @@ function filterDetailTable() {
   else buildDetailTable();
 }
 
+function _moneyTotal(cell) {
+  var v = cell.getValue() || 0;
+  return '<b style="color:#fff">¥' + v.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</b>';
+}
+
 function buildDetailTable() {
   if (detailTable) { detailTable.destroy(); detailTable = null; }
   detailTable = buildTable('#detailDataTable', detailFiltered, [
-    {title:'年月', field:'ym', width:90, sorter:'string'},
+    {title:'年月', field:'ym', width:90, sorter:'string', headerFilter:true},
     {title:'客户', field:'customer', sorter:'string', headerFilter:true},
     {title:'产品', field:'product', sorter:'string', headerFilter:true},
     {title:'类别', field:'cat', sorter:'string', headerFilter:true},
     {title:'部门', field:'dept', sorter:'string', headerFilter:true},
     {title:'渠道', field:'channel', sorter:'string', headerFilter:true},
     {title:'销售员', field:'sp', sorter:'string', headerFilter:true},
-    {title:'数量', field:'qty', sorter:'number', hozAlign:'right'},
-    {title:'单价', field:'price', sorter:'number', hozAlign:'right', formatter:'money'},
-    {title:'金额', field:'amt', sorter:'number', hozAlign:'right', formatter:'money', bottomCalc:'sum', bottomCalcFormatter:'money'},
-    {title:'成本', field:'cost', sorter:'number', hozAlign:'right', formatter:'money', bottomCalc:'sum', bottomCalcFormatter:'money'},
-    {title:'毛利', field:'gp', sorter:'number', hozAlign:'right', formatter:'money', bottomCalc:'sum', bottomCalcFormatter:'money'},
+    {title:'数量', field:'qty', sorter:'number', hozAlign:'right', headerFilter:true, headerFilterFunc:'='},
+    {title:'单价', field:'price', sorter:'number', hozAlign:'right', formatter:'money', headerFilter:true, headerFilterFunc:'='},
+    {title:'金额', field:'amt', sorter:'number', hozAlign:'right', formatter:'money', headerFilter:true, headerFilterFunc:'=', bottomCalc:'sum', bottomCalcFormatter:_moneyTotal},
+    {title:'成本', field:'cost', sorter:'number', hozAlign:'right', formatter:'money', headerFilter:true, headerFilterFunc:'=', bottomCalc:'sum', bottomCalcFormatter:_moneyTotal},
+    {title:'毛利', field:'gp', sorter:'number', hozAlign:'right', formatter:'money', headerFilter:true, headerFilterFunc:'=', bottomCalc:'sum', bottomCalcFormatter:_moneyTotal},
   ], { height: 440, paginationSize: 50 });
 }
 
